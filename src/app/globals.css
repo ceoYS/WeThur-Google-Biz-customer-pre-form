@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --navy-950: #07182c;
+  --navy-900: #0b2340;
+  --navy-700: #244563;
+  --navy-300: #a8b5c2;
+  --neutral-100: #f5f5f2;
+  --neutral-50: #fbfbf8;
+  --white: #ffffff;
+  --font-korean:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR",
+    "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--neutral-100);
+  color: var(--navy-950);
+  font-family: var(--font-korean);
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background-color: var(--neutral-50);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Cpath d='M0 0H48M0 0V48' fill='none' stroke='%2307182c' stroke-opacity='.035'/%3E%3C/svg%3E");
+  background-size: 48px 48px;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: var(--navy-900);
+  color: var(--white);
+}
+
+:focus-visible {
+  outline: 3px solid rgb(11 35 64 / 0.35);
+  outline-offset: 3px;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.reveal {
+  animation: rise-in 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.reveal-delay-1 {
+  animation-delay: 90ms;
+}
+
+.reveal-delay-2 {
+  animation-delay: 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .reveal,
+  .reveal-delay-1,
+  .reveal-delay-2 {
+    animation: none;
+  }
+}
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  html,
+  body {
+    background: white !important;
+  }
+
+  .print-brief {
+    max-width: none;
+    padding: 0;
+  }
+}
