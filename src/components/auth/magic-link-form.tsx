@@ -5,11 +5,22 @@ import { useActionState } from "react";
 import { initialLoginActionState } from "@/app/admin/login/action-state";
 import { requestMagicLink } from "@/app/admin/login/actions";
 
-export function MagicLinkForm({ configured }: { configured: boolean }) {
+export function MagicLinkForm({
+  configured,
+  initialErrorMessage,
+}: {
+  configured: boolean;
+  initialErrorMessage?: string | null;
+}) {
   const [state, formAction, pending] = useActionState(
     requestMagicLink,
     initialLoginActionState,
   );
+  const hasActionMessage = Boolean(state.message);
+  const displayedMessage = state.message || initialErrorMessage;
+  const messageIsError = hasActionMessage
+    ? state.status === "error"
+    : Boolean(initialErrorMessage);
 
   return (
     <form action={formAction} className="mt-10 space-y-6">
@@ -35,12 +46,12 @@ export function MagicLinkForm({ configured }: { configured: boolean }) {
       >
         {pending ? "로그인 링크 요청 중" : "이메일로 로그인 링크 받기"}
       </button>
-      {state.message ? (
+      {displayedMessage ? (
         <p
-          role="status"
+          role={messageIsError ? "alert" : "status"}
           className="border-l-2 border-[var(--navy-900)] pl-4 text-sm leading-6"
         >
-          {state.message}
+          {displayedMessage}
         </p>
       ) : null}
       {!configured ? (

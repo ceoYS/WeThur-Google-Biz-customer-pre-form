@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { MagicLinkForm } from "@/components/auth/magic-link-form";
+import { getAdminLoginErrorMessage } from "@/lib/admin-auth-errors";
 import { hasPublicSupabaseEnvironment } from "@/lib/env.public";
 
 export const metadata: Metadata = {
@@ -9,7 +10,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function AdminLoginPage() {
+export default async function AdminLoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const initialErrorMessage = getAdminLoginErrorMessage(params.error);
+
   return (
     <main className="grid min-h-screen lg:grid-cols-[0.9fr_1.1fr]">
       <section className="flex flex-col justify-between bg-[var(--navy-950)] p-7 text-white sm:p-12 lg:p-16">
@@ -42,7 +50,10 @@ export default function AdminLoginPage() {
           <p className="mt-4 text-sm leading-6 text-[var(--navy-700)]">
             비밀번호 대신 이메일로 일회성 로그인 링크를 보내드립니다.
           </p>
-          <MagicLinkForm configured={hasPublicSupabaseEnvironment()} />
+          <MagicLinkForm
+            configured={hasPublicSupabaseEnvironment()}
+            initialErrorMessage={initialErrorMessage}
+          />
         </div>
       </section>
     </main>

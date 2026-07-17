@@ -29,12 +29,67 @@ The migrations create tables, constraints, indexes, updated-at triggers, item li
 ## Auth
 
 1. Enable email magic-link authentication.
-2. Set Site URL to the deployed `APP_URL`.
-3. Add local, Preview, and Production `<origin>/auth/callback` redirect URLs as appropriate.
-4. Configure `ADMIN_EMAILS` as a comma-separated allowlist.
-5. Request a magic link from `/admin/login`. The callback creates `admin_profiles` only for an allowlisted authenticated email.
+2. For local development, set both Site URL and `APP_URL` to
+   `http://localhost:3000`, and add
+   `http://localhost:3000/auth/callback` to Redirect URLs.
+3. In Authentication -> Emails -> Templates -> Magic link or OTP, replace the
+   `{{ .ConfirmationURL }}` template. Set the subject to
+   `WeThru 관리자 로그인` and use this body:
+
+   ```html
+   <h2>WeThru 관리자 로그인</h2>
+
+   <p>아래 버튼을 눌러 관리자 화면에 로그인해주세요.</p>
+
+   <p>
+     <a
+       href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/admin"
+     >
+       관리자 로그인
+     </a>
+   </p>
+
+   <p>이 링크는 한 번만 사용할 수 있으며 잠시 후 만료됩니다.</p>
+   ```
+
+4. Before deploying to Vercel, change `APP_URL` and Site URL to the Production
+   origin, add `<production-origin>/auth/callback`, and add any required Preview
+   callback origins to the Redirect URLs allowlist.
+5. Configure `ADMIN_EMAILS` as a comma-separated allowlist.
+6. Request a magic link from `/admin/login`. `/auth/confirm` verifies the token
+   hash and creates `admin_profiles` only for an allowlisted authenticated email.
 
 An authenticated Supabase user who is not in both `ADMIN_EMAILS` and `admin_profiles` has no administrator access.
+
+`/auth/confirm` is the Magic Link endpoint. It verifies `token_hash` with
+`type=email`, stores the returned session in cookies, checks `ADMIN_EMAILS`, and
+upserts `admin_profiles`. `/auth/callback` remains separate for ConfirmationURL
+emails already in flight and PKCE authorization-code callbacks. There is no
+current OAuth sign-in call in this codebase, so the callback is retained as a
+compatibility route rather than deleted speculatively.
+
+Do not repeatedly request Magic Links during setup. The form disables its input
+and button while a request is pending, while Supabase Auth remains the authority
+for per-user and project-wide rate limits. The UI maps rate-limit failures to a
+safe retry-later message without exposing the email address, token, or provider
+error details.
+
+## Custom SMTP
+
+Authentication -> Email -> Custom SMTP is enabled with this non-secret
+configuration:
+
+- Sending domain: `auth.nitual.com` (Verified in Resend)
+- Sender email: `login@auth.nitual.com`
+- Sender name: `WeThru`
+- Host: `smtp.resend.com`
+- Port: `465`
+- Username: `resend`
+
+Keep the SMTP password/API key only in the Supabase Dashboard secret field.
+Never place it in this repository, `.env.local` output, logs, screenshots, or
+support messages. Disable provider-side link tracking for Auth emails so it does
+not rewrite the one-time TokenHash URL.
 
 ## Storage verification
 

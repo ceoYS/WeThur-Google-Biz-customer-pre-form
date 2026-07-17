@@ -38,10 +38,18 @@ npm run dev
 ## Supabase setup
 
 1. 새 Supabase 프로젝트를 만들고 Auth 이메일 로그인을 활성화합니다.
-2. Site URL을 `APP_URL`, redirect URL을 `<APP_URL>/auth/callback`으로 설정합니다.
-3. `supabase/migrations`의 SQL을 파일명 순서대로 적용합니다.
-4. 첫 관리자 이메일을 `ADMIN_EMAILS`에 넣습니다.
-5. `/admin/login`에서 그 이메일로 magic link를 요청합니다. 허용된 이메일만 `admin_profiles`에 생성됩니다.
+2. 로컬에서는 Site URL과 `APP_URL`을 `http://localhost:3000`으로 맞추고,
+   redirect URL에 `http://localhost:3000/auth/callback`을 등록합니다.
+3. Magic Link 템플릿을 `/auth/confirm` TokenHash 경로로 연결합니다. 기존
+   code flow 호환을 위해 `<APP_URL>/auth/callback` redirect URL은 유지합니다.
+4. Resend Custom SMTP는 Verified 발송 도메인 `auth.nitual.com`과 서버에
+   저장한 SMTP 자격 증명을 사용합니다. 비밀번호나 API key는 문서와 Git에
+   기록하지 않습니다.
+5. `supabase/migrations`의 SQL을 파일명 순서대로 적용합니다.
+6. 첫 관리자 이메일을 `ADMIN_EMAILS`에 넣습니다.
+7. `/admin/login`에서 그 이메일로 magic link를 한 번 요청합니다. 허용된
+   이메일만 `admin_profiles`에 생성되며, 반복 요청 시 Supabase Auth의
+   rate limit이 적용됩니다.
 
 CLI를 사용할 경우:
 
@@ -100,7 +108,9 @@ Playwright 전체 흐름은 연결된 테스트 Supabase 환경과 안전한 테
 1. 이 GitHub 저장소를 Vercel 프로젝트에 연결합니다.
 2. `.env.example`의 필수 값을 Preview와 Production에 각각 설정합니다.
 3. Production Supabase에 migration을 먼저 적용합니다.
-4. `APP_URL`과 Supabase Auth URL을 실제 Vercel 도메인으로 맞춥니다.
+4. `APP_URL`, Supabase Site URL, `<origin>/auth/callback` redirect URL을 실제
+   Vercel 운영 origin으로 변경하고 필요한 Preview origin도 redirect
+   allowlist에 추가합니다.
 5. Production 배포 후 홈페이지, magic link, 사건 생성, intake 저장·제출, 비공개 증빙, 내보내기를 검증합니다.
 
 자세한 절차는 [Deployment](docs/DEPLOYMENT.md)와 [Vercel setup](docs/VERCEL_SETUP.md)에 있습니다.
@@ -116,7 +126,10 @@ Playwright 전체 흐름은 연결된 테스트 Supabase 환경과 안전한 테
 ## Troubleshooting
 
 - `Required server configuration is unavailable`: 필수 서버 환경 값 또는 32자 이상의 `TOKEN_HASH_SECRET`을 확인합니다.
-- Magic link 후 로그인 실패: `ADMIN_EMAILS`, Auth Site URL, redirect URL, 이메일 대소문자·공백을 확인합니다.
+- Magic link 후 로그인 실패: `ADMIN_EMAILS`, Auth Site URL, Magic Link
+  TokenHash 템플릿, 이메일 대소문자·공백을 확인합니다. `/auth/confirm`은
+  Magic Link TokenHash를 검증하고, `/auth/callback`은 기존 PKCE code flow
+  호환용입니다.
 - 고객 링크 404: 링크가 해지됐거나 토큰 secret이 환경 간 다르거나 잘못된 Supabase 프로젝트를 사용 중인지 확인합니다.
 - 업로드 실패: 확장자, 실제 파일 시그니처, 15 MB/15개 제한과 private bucket migration을 확인합니다.
 - 진단 없음: 최종 제출 payload와 `case_diagnosis` 쓰기 결과, `diagnosis_generation_failed` 활동을 확인합니다.
