@@ -54,7 +54,7 @@ export async function PATCH(
       );
 
     const responseRecorded = Boolean(body.data.customerResponse);
-    const { error } = await service
+    const { data: updated, error } = await service
       .from("follow_up_requests")
       .update({
         status: body.data.status,
@@ -62,11 +62,22 @@ export async function PATCH(
         responded_at: responseRecorded ? new Date().toISOString() : null,
       })
       .eq("case_id", caseId.data)
-      .eq("id", requestId.data);
+      .eq("id", requestId.data)
+      .eq("status", current.status)
+      .select("id")
+      .maybeSingle<{ id: string }>();
     if (error)
       return NextResponse.json(
         { error: "추가 질문 상태를 저장하지 못했습니다." },
         { status: 400 },
+      );
+    if (!updated)
+      return NextResponse.json(
+        {
+          error:
+            "다른 화면에서 상태가 변경됐습니다. 새로고침 후 다시 시도해주세요.",
+        },
+        { status: 409 },
       );
 
     await service.from("case_activity_log").insert({

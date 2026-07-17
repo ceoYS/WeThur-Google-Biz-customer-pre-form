@@ -5,6 +5,7 @@ import { createHmac } from "node:crypto";
 import type { NextRequest } from "next/server";
 
 import { getServerEnvironment } from "@/lib/env.server";
+import { isConfiguredOrigin } from "@/lib/origin-validation";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
 export class RequestSecurityError extends Error {
@@ -19,10 +20,9 @@ export class RequestSecurityError extends Error {
 
 export function assertSameOrigin(request: NextRequest): void {
   const origin = request.headers.get("origin");
-  const configuredOrigin = new URL(getServerEnvironment().APP_URL).origin;
-  const requestOrigin = request.nextUrl.origin;
+  const appUrl = getServerEnvironment().APP_URL;
 
-  if (!origin || (origin !== configuredOrigin && origin !== requestOrigin)) {
+  if (!isConfiguredOrigin(origin, appUrl)) {
     throw new RequestSecurityError(
       "요청을 확인할 수 없습니다. 페이지를 새로고침해주세요.",
       403,

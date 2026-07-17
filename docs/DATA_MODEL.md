@@ -74,5 +74,6 @@ Anonymous database privileges are revoked. Authenticated policies require `is_ad
 8. `202607160008_update_case_configuration.sql`: safe pre-submission configuration replacement.
 9. `202607160009_timeline_admin_workspace.sql`: administrator normalization note and atomic history ordering.
 10. `202607160010_third_party_changes_array.sql`: aligns third-party change history with the validated array payload.
+11. `202607170011_customer_evidence_mutations.sql`: serializes customer evidence registration and deletion against final submission.
 
 Never rewrite an applied production migration. Add a new migration and preserve compatibility with the deployed application release sequence.

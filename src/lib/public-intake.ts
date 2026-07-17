@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getServerEnvironment } from "@/lib/env.server";
+import { resolveIntakeProfileCandidates } from "@/lib/intake-profile-candidates";
 import {
   composeQuestionModules,
   conditionSchema,
@@ -315,17 +316,11 @@ export async function loadPublicIntakeBundle(
   const draftPayload = draft.success
     ? {
         ...draft.data,
-        profileCandidates: [
-          ...configuredProfileCandidates.map((configured) => {
-            const customerDraft = draft.data.profileCandidates.find(
-              (candidate) => candidate.existingId === configured.existingId,
-            );
-            return customerDraft ?? configured;
-          }),
-          ...draft.data.profileCandidates.filter(
-            (candidate) => !candidate.existingId,
-          ),
-        ],
+        profileCandidates: resolveIntakeProfileCandidates({
+          intakeStatus: caseData.intake_status,
+          configured: configuredProfileCandidates,
+          draft: draft.data.profileCandidates,
+        }),
       }
     : null;
 

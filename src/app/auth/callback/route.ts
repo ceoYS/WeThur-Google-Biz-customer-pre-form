@@ -1,20 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { isAllowedAdminEmail } from "@/lib/admin-allowlist";
+import { resolveAdminRedirectUrl } from "@/lib/auth-redirect";
 import { getServerEnvironment } from "@/lib/env.server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 
-function safeNextPath(value: string | null): string {
-  if (!value || !value.startsWith("/") || value.startsWith("//"))
-    return "/admin";
-  return value;
-}
-
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
-  const nextPath = safeNextPath(request.nextUrl.searchParams.get("next"));
-  const loginUrl = new URL("/admin/login", request.url);
+  const environment = getServerEnvironment();
+  const nextUrl = resolveAdminRedirectUrl(
+    request.nextUrl.searchParams.get("next"),
+    environment.APP_URL,
+  );
+  const loginUrl = new URL("/admin/login", environment.APP_URL);
 
   if (!code) {
     loginUrl.searchParams.set("error", "invalid_link");
@@ -28,7 +27,7 @@ export async function GET(request: NextRequest) {
   if (
     error ||
     !user ||
-    !isAllowedAdminEmail(user.email, getServerEnvironment().ADMIN_EMAILS)
+    !isAllowedAdminEmail(user.email, environment.ADMIN_EMAILS)
   ) {
     await supabase.auth.signOut();
     loginUrl.searchParams.set("error", "not_allowed");
@@ -58,5 +57,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.redirect(new URL(nextPath, request.url));
+  return NextResponse.redirect(nextUrl);
 }

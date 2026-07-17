@@ -24,7 +24,7 @@ supabase db push
 
 If the CLI is unavailable, use the Supabase Dashboard SQL Editor and apply each file once in order. Keep a private deployment record of project ref, migration filenames, time, operator, and application Git SHA. Do not edit a migration already applied to production; add a new numbered migration.
 
-The migrations create tables, constraints, indexes, updated-at triggers, item limits, atomic case/intake functions, RLS, the private `case-evidence` bucket, module seeds, and timeline operations.
+The migrations create tables, constraints, indexes, updated-at triggers, item limits, atomic case/intake and customer-evidence functions, RLS, the private `case-evidence` bucket, module seeds, and timeline operations.
 
 ## Auth
 

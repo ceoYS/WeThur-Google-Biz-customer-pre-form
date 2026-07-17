@@ -62,14 +62,25 @@ export async function PATCH(
     if (bodyResult.data.status === "completed")
       updates.completed_at = new Date().toISOString();
     else if (current.status === "completed") updates.completed_at = null;
-    const { error } = await service
+    const { data: updated, error } = await service
       .from("cases")
       .update(updates)
-      .eq("id", idResult.data);
+      .eq("id", idResult.data)
+      .eq("status", current.status)
+      .select("id")
+      .maybeSingle<{ id: string }>();
     if (error)
       return NextResponse.json(
         { error: "상태를 변경하지 못했습니다." },
         { status: 400 },
+      );
+    if (!updated)
+      return NextResponse.json(
+        {
+          error:
+            "다른 화면에서 상태가 변경됐습니다. 새로고침 후 다시 시도해주세요.",
+        },
+        { status: 409 },
       );
 
     await service.from("case_activity_log").insert({

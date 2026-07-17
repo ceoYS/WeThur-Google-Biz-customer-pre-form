@@ -38,6 +38,7 @@ Rotate `SUPABASE_SERVICE_ROLE_KEY` and `TOKEN_HASH_SECRET` if they are exposed. 
 - Mutation payloads include an invisible honeypot; a populated value is rejected without explaining the signal.
 - Zod schemas reject unknown or oversized structures before writes.
 - Submitted cases use an atomic database transition and cannot be submitted twice unless an administrator reopens them.
+- Customer evidence registration and deletion lock the same case row as final submission, so an attachment mutation cannot commit after submission wins the race.
 
 ## Browser controls
 

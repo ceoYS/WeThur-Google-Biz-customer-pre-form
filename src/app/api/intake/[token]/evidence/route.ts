@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { NextResponse, type NextRequest } from "next/server";
 
+import { getServerEnvironment } from "@/lib/env.server";
 import {
   FileValidationError,
   validateEvidenceFile,
@@ -15,7 +16,7 @@ import {
 import { assertContentLength, assertMultipartRequest } from "@/lib/route-input";
 import { evidenceUploadMetadataSchema } from "@/lib/schemas/intake";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import { intakeTokenSchema } from "@/lib/tokens";
+import { hashIntakeToken, intakeTokenSchema } from "@/lib/tokens";
 
 const MAX_MULTIPART_BYTES = 16 * 1024 * 1024;
 
@@ -92,16 +93,6 @@ export async function POST(
     });
 
     const service = createServiceRoleClient();
-    const { count } = await service
-      .from("case_evidence")
-      .select("id", { count: "exact", head: true })
-      .eq("case_id", intakeCase.id);
-    if ((count ?? 0) >= 15)
-      return NextResponse.json(
-        { error: "자료는 최대 15개까지 업로드할 수 있습니다." },
-        { status: 400 },
-      );
-
     uploadedPath = `cases/${intakeCase.id}/${randomUUID()}-${validated.storageFilename}`;
     const bytes = Buffer.from(await fileValue.arrayBuffer());
     const { error: storageError } = await service.storage
@@ -116,27 +107,39 @@ export async function POST(
         { status: 400 },
       );
 
-    const { data: evidence, error: insertError } = await service
-      .from("case_evidence")
-      .insert({
-        case_id: intakeCase.id,
-        evidence_category: metadataResult.data.evidenceCategory,
-        storage_path: uploadedPath,
-        original_filename: validated.originalFilename,
-        mime_type: validated.mimeType,
-        size_bytes: validated.sizeBytes,
-        customer_description: metadataResult.data.customerDescription || null,
-        uploaded_by_type: "customer",
-        customer_link_type: metadataResult.data.linkType ?? null,
-        customer_link_client_id: metadataResult.data.linkClientId ?? null,
-      })
-      .select(
-        "id, evidence_category, original_filename, size_bytes, customer_description, customer_link_type, customer_link_client_id",
-      )
-      .single();
+    const { data: evidenceData, error: insertError } = await service.rpc(
+      "register_customer_case_evidence",
+      {
+        p_token_hash: hashIntakeToken(
+          tokenResult.data,
+          getServerEnvironment().TOKEN_HASH_SECRET,
+        ),
+        p_evidence: {
+          evidenceCategory: metadataResult.data.evidenceCategory,
+          storagePath: uploadedPath,
+          originalFilename: validated.originalFilename,
+          mimeType: validated.mimeType,
+          sizeBytes: validated.sizeBytes,
+          customerDescription: metadataResult.data.customerDescription,
+          customerLinkType: metadataResult.data.linkType ?? null,
+          customerLinkClientId: metadataResult.data.linkClientId ?? null,
+        },
+      },
+    );
+    const evidence = evidenceData as EvidenceRegistrationResult | null;
     if (insertError || !evidence) {
       await service.storage.from("case-evidence").remove([uploadedPath]);
       uploadedPath = null;
+      if (insertError?.message.includes("case_not_writable"))
+        return NextResponse.json(
+          { error: "제출 후에는 자료를 추가할 수 없습니다." },
+          { status: 409 },
+        );
+      if (insertError?.message.includes("allows at most 15 files"))
+        return NextResponse.json(
+          { error: "자료는 최대 15개까지 업로드할 수 있습니다." },
+          { status: 400 },
+        );
       return NextResponse.json(
         { error: "자료 정보를 저장하지 못했습니다." },
         { status: 400 },
@@ -185,3 +188,14 @@ export async function POST(
     );
   }
 }
+
+type EvidenceRegistrationResult = {
+  id: string;
+  case_id: string;
+  evidence_category: string;
+  original_filename: string;
+  size_bytes: number;
+  customer_description: string | null;
+  customer_link_type: "history_event" | "profile_candidate" | null;
+  customer_link_client_id: string | null;
+};
