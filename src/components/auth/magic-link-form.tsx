@@ -2,10 +2,8 @@
 
 import { useActionState } from "react";
 
-import {
-  initialLoginActionState,
-  requestMagicLink,
-} from "@/app/admin/login/actions";
+import { initialLoginActionState } from "@/app/admin/login/action-state";
+import { requestMagicLink } from "@/app/admin/login/actions";
 
 export function MagicLinkForm({ configured }: { configured: boolean }) {
   const [state, formAction, pending] = useActionState(

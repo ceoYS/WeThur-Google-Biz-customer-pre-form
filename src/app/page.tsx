@@ -45,7 +45,7 @@ export default function HomePage() {
           <p className="mb-7 text-xs font-bold tracking-[0.22em] text-[var(--navy-700)] uppercase">
             Google Business Profile Case System
           </p>
-          <h1 className="text-[clamp(3rem,8vw,7.5rem)] leading-[0.9] font-black tracking-[-0.075em] text-[var(--navy-950)]">
+          <h1 className="text-[clamp(2.5rem,5vw,3.75rem)] leading-[0.95] font-black tracking-[-0.05em] text-balance break-keep text-[var(--navy-950)]">
             문제를 다시 만들지 않도록,
             <br />
             먼저 흐름을 봅니다.
@@ -68,7 +68,7 @@ export default function HomePage() {
       <section className="bg-[var(--navy-950)] text-white">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 lg:px-12 lg:py-24">
           <div className="mb-12 flex flex-col justify-between gap-4 border-b border-white/25 pb-7 sm:flex-row sm:items-end">
-            <h2 className="text-3xl font-black tracking-[-0.04em] sm:text-5xl">
+            <h2 className="text-3xl font-black tracking-[-0.04em] break-keep sm:text-5xl">
               한 사건을 읽는 세 단계
             </h2>
             <p className="max-w-md text-sm leading-6 text-white/70">
@@ -102,7 +102,7 @@ export default function HomePage() {
           <p className="text-xs font-bold tracking-[0.2em] text-[var(--navy-700)] uppercase">
             Designed for trust
           </p>
-          <h2 className="mt-5 max-w-xl text-4xl leading-tight font-black tracking-[-0.05em] text-[var(--navy-950)] sm:text-6xl">
+          <h2 className="mt-5 max-w-xl text-4xl leading-tight font-black tracking-[-0.05em] text-balance break-keep text-[var(--navy-950)] sm:text-5xl">
             고객에게는 단순하게,
             <br />
             검토자에게는 구조적으로.

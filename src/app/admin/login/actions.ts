@@ -7,17 +7,9 @@ import { getServerEnvironment } from "@/lib/env.server";
 import { hasPublicSupabaseEnvironment } from "@/lib/env.public";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
+import type { LoginActionState } from "./action-state";
+
 const emailSchema = z.email().max(254);
-
-export type LoginActionState = {
-  status: "idle" | "success" | "error";
-  message: string;
-};
-
-export const initialLoginActionState: LoginActionState = {
-  status: "idle",
-  message: "",
-};
 
 export async function requestMagicLink(
   _previousState: LoginActionState,
