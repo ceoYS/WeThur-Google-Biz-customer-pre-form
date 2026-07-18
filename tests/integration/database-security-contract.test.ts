@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { TextDecoder } from "node:util";
 
 import { describe, expect, it } from "vitest";
 
@@ -173,21 +174,91 @@ describe("seeded question-module catalog", () => {
   });
 
   it("retires goals and adds required history facts without changing security", () => {
-    const migration = readFileSync(
-      join(migrationDirectory, "202607180014_customer_ready_questionnaire.sql"),
-      "utf8",
+    const migrationPath = join(
+      migrationDirectory,
+      "202607180014_customer_ready_questionnaire.sql",
     );
+    const migrationBytes = readFileSync(migrationPath);
+    const migration = new TextDecoder("utf-8", { fatal: true }).decode(
+      migrationBytes,
+    );
+
+    function definitionFor(key: string) {
+      const condition = `where question->>'key' = '${key}'`;
+      const end = migration.indexOf(condition);
+      const start = migration.lastIndexOf(
+        "update public.question_modules",
+        end,
+      );
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(end).toBeGreaterThan(start);
+      return migration.slice(start, end + condition.length);
+    }
+
+    function expectStructuredQuestion(
+      key: string,
+      type: string,
+      sortOrder: number,
+      expectedOptions: string[],
+    ) {
+      const definition = definitionFor(key);
+      expect(definition).toContain("jsonb_build_array(");
+      expect(definition).toContain("jsonb_build_object(");
+      expect(definition).toContain(`'key', '${key}'`);
+      expect(definition).toMatch(/'label',\s*'[^']+'/);
+      expect(definition).toContain(`'type', '${type}'`);
+      expect(definition).toContain("'options', jsonb_build_array(");
+      expect(definition).toContain(`'sortOrder', ${sortOrder}`);
+      expect(definition).toContain("and not exists (");
+      for (const option of expectedOptions) {
+        expect(definition).toContain(`'${option}'`);
+      }
+    }
 
     expect(migration).toMatch(/^begin;/);
     expect(migration.trimEnd()).toMatch(/commit;$/);
+    expect(migration).not.toMatch(
+      /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\ufffd]/,
+    );
     expect(migration).toContain("('priority_goals')");
     expect(migration).toContain("('success_definition')");
     expect(migration).toContain("('process_expectation')");
-    expect(migration).toContain('"key":"verification_methods_used"');
-    expect(migration).toContain('"key":"google_notice_type"');
+    expect(
+      migration.match(/'key',\s*'verification_methods_used'/g),
+    ).toHaveLength(1);
+    expect(migration.match(/'key',\s*'google_notice_type'/g)).toHaveLength(1);
+    expectStructuredQuestion("verification_methods_used", "multi_select", 65, [
+      "영상 인증",
+      "실시간 영상 통화",
+      "전화 또는 문자",
+      "이메일",
+      "우편",
+      "인증을 요청받지 않았어요",
+      "잘 모르겠어요",
+      "확인이 필요해요",
+    ]);
+    expectStructuredQuestion("google_notice_type", "single_select", 75, [
+      "정책 위반 안내",
+      "인증 실패 또는 추가 인증 요청",
+      "중복 또는 소유권 관련 안내",
+      "구체적인 사유가 없었어요",
+      "안내를 찾지 못했어요",
+      "잘 모르겠어요",
+      "확인이 필요해요",
+    ]);
+    const rawJsonBlocks = [
+      ...migration.matchAll(/\$json\$([\s\S]*?)\$json\$::jsonb/g),
+    ];
+    for (const match of rawJsonBlocks) {
+      expect(() => JSON.parse(match[1] ?? "")).not.toThrow();
+    }
+    expect(rawJsonBlocks).toHaveLength(0);
     expect(migration).toContain("module_key = 'common_history'");
     expect(migration).toContain("is_active = false");
+    expect(migration).toContain("'common_goals'");
     expect(migration).not.toMatch(/delete\s+from\s+public\.question_modules/i);
-    expect(migration).not.toMatch(/grant|revoke|row level security/i);
+    expect(migration).not.toMatch(
+      /\b(?:grant|revoke)\b|row level security|\bstorage\.|\bauth\./i,
+    );
   });
 });

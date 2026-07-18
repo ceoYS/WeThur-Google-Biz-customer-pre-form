@@ -123,8 +123,8 @@ describe("required customer information matrix", () => {
       ),
       "utf8",
     );
-    expect(migration).toContain('"key":"verification_methods_used"');
-    expect(migration).toContain('"key":"google_notice_type"');
+    expect(migration).toContain("'key', 'verification_methods_used'");
+    expect(migration).toContain("'key', 'google_notice_type'");
     for (const key of [
       "priority_goals",
       "success_definition",
