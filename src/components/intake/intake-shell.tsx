@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, ArrowRight, Clock3, LockKeyhole, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { startTransition, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 
 import { DynamicQuestion } from "@/components/intake/dynamic-question";
@@ -12,58 +12,89 @@ import { HistoryTimeline } from "@/components/intake/history-timeline";
 import { ProfileCandidateList } from "@/components/intake/profile-candidate-list";
 import { ThirdPartyList } from "@/components/intake/third-party-list";
 import {
-  evaluateQuestionCondition,
-  type QuestionnaireSectionKey,
-} from "@/lib/question-modules";
+  canSelectIntakeStep,
+  firstIntakeStepId,
+  getIntakeProgress,
+  getNextStepId,
+  getPreviousStepId,
+  getStepIndex,
+  intakeStepIds,
+  isFinalIntakeStep,
+  type IntakeStepId,
+} from "@/lib/intake-navigation";
+import { evaluateQuestionCondition } from "@/lib/question-modules";
 import {
   intakePayloadSchema,
+  safeParseIntakePayload,
   type IntakePayloadInput,
 } from "@/lib/schemas/intake";
 import type { PublicIntakeBundle } from "@/lib/public-intake";
 
-const sections: Array<{
-  key: QuestionnaireSectionKey;
-  title: string;
-  description: string;
-}> = [
+const sectionDetails: Record<
+  IntakeStepId,
   {
-    key: "current_business",
+    title: string;
+    description: string;
+  }
+> = {
+  current_business: {
     title: "현재 사업장 모습을 먼저 알려주세요",
     description: "간판과 실제 운영 정보부터 편하게 확인합니다.",
   },
-  {
-    key: "history_summary",
+  history_summary: {
     title: "예전에 Google 지도 등록을 어떻게 진행했는지 떠올려볼게요",
     description: "정확한 날짜가 아니어도 괜찮습니다. 큰 흐름부터 정리합니다.",
   },
-  {
-    key: "changes",
+  changes: {
     title: "프로필이 사라지기 전후에 달라진 점이 있었나요?",
     description:
       "담당자와 변경 사항을 누가 잘못했는지 판단하지 않고 살펴봅니다.",
   },
-  {
-    key: "profile_candidates",
+  profile_candidates: {
     title: "현재 지도에서 보이는 항목을 함께 비교할게요",
     description: "현재 관련 프로필 후보를 확인하고, 다르면 바로잡아주세요.",
   },
-  {
-    key: "evidence",
+  evidence: {
     title: "확인에 도움이 되는 자료가 있는지 알려주세요",
     description: "지금 자료가 없어도 괜찮습니다. 보유 여부부터 확인합니다.",
   },
-  {
-    key: "goals",
+  goals: {
     title: "대표님이 가장 원하는 결과를 알려주세요",
     description: "가능한 것과 먼저 확인할 일을 구분하기 위한 질문입니다.",
   },
-  {
-    key: "confirmation",
+  confirmation: {
     title: "마지막으로 함께 확인해주세요",
     description:
       "어려운 계약 문구가 아니라 안전한 진행 범위를 짧게 확인합니다.",
   },
-];
+};
+
+const sections: Array<{
+  key: IntakeStepId;
+  title: string;
+  description: string;
+}> = intakeStepIds.map((key) => ({ key, ...sectionDetails[key] }));
+
+const draftValidationMessage = "작성 내용을 다시 확인해주세요.";
+const draftFailureMessage = "임시 저장하지 못했습니다.";
+const submitFailureMessage = "제출하지 못했습니다.";
+const approvedServerMessages = new Set([
+  "유효하지 않은 고객 링크입니다.",
+  "저장 요청이 많습니다. 잠시 후 다시 시도해주세요.",
+  draftValidationMessage,
+  "이미 제출된 사건입니다.",
+  draftFailureMessage,
+  "제출 요청이 많습니다. 잠시 후 다시 시도해주세요.",
+  "고객 링크를 확인할 수 없습니다.",
+  "마지막 필수 확인 항목을 확인해주세요.",
+  "제출하지 못했습니다. 잠시 후 다시 시도해주세요.",
+  submitFailureMessage,
+  "요청을 확인할 수 없습니다. 페이지를 새로고침해주세요.",
+  "허용되지 않은 요청입니다.",
+  "요청을 처리할 수 없습니다.",
+  "지원하지 않는 요청 형식입니다.",
+  "요청 용량이 너무 큽니다.",
+]);
 
 export function IntakeShell({
   token,
@@ -73,7 +104,8 @@ export function IntakeShell({
   bundle: PublicIntakeBundle;
 }) {
   const router = useRouter();
-  const [step, setStep] = useState(0);
+  const [currentStepId, setCurrentStepId] =
+    useState<IntakeStepId>(firstIntakeStepId);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -89,16 +121,18 @@ export function IntakeShell({
     },
   });
   const answers = useWatch({ control: form.control, name: "answers" }) ?? {};
-  const currentSection = sections[step] ?? sections[0]!;
+  const stepIndex = getStepIndex(currentStepId);
+  const currentSection = sections[stepIndex] ?? sections[0]!;
   const currentQuestions = bundle.questions.filter(
     (question) =>
+      question.key !== "preferred_contact_method" &&
       question.sectionKey === currentSection.key &&
       evaluateQuestionCondition(question.condition, answers),
   );
   const prefilledMap = new Map(
     bundle.prefilledFields.map((field) => [field.fieldKey, field.value]),
   );
-  const progress = Math.round(((step + 1) / sections.length) * 100);
+  const progress = getIntakeProgress(currentStepId);
 
   function answerIsEmpty(value: unknown, confirmation: boolean): boolean {
     return (
@@ -126,39 +160,43 @@ export function IntakeShell({
   }
 
   function moveStep(direction: 1 | -1) {
-    if (direction === 1 && !validateSection(step)) return;
+    if (direction === 1 && !validateSection(stepIndex)) return;
     setMessage("");
-    startTransition(() => {
-      setStep((current) =>
-        Math.min(sections.length - 1, Math.max(0, current + direction)),
-      );
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
+    setCurrentStepId(
+      direction === 1
+        ? getNextStepId(currentStepId)
+        : getPreviousStepId(currentStepId),
+    );
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function saveDraft() {
     setSaving(true);
     setMessage("");
     try {
-      const payload = intakePayloadSchema.parse(form.getValues());
+      const parsed = safeParseIntakePayload(form.getValues());
+      if (!parsed.success) {
+        setMessage(draftValidationMessage);
+        return;
+      }
       const response = await fetch(`/api/intake/${token}/draft`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(parsed.data),
       });
       const result = (await response.json()) as {
         error?: string;
         savedAt?: string;
       };
-      if (!response.ok)
-        throw new Error(result.error ?? "임시 저장하지 못했습니다.");
+      if (!response.ok) {
+        setMessage(getApprovedServerMessage(result.error, draftFailureMessage));
+        return;
+      }
       setMessage(
         "현재까지 작성한 내용을 안전하게 저장했습니다. 같은 링크로 이어서 작성할 수 있어요.",
       );
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "임시 저장하지 못했습니다.",
-      );
+    } catch {
+      setMessage(draftFailureMessage);
     } finally {
       setSaving(false);
     }
@@ -167,7 +205,7 @@ export function IntakeShell({
   async function submitFinal(input: IntakePayloadInput) {
     for (let index = 0; index < sections.length; index += 1) {
       if (!validateSection(index)) {
-        setStep(index);
+        setCurrentStepId(sections[index]!.key);
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
@@ -181,19 +219,31 @@ export function IntakeShell({
         body: JSON.stringify(intakePayloadSchema.parse(input)),
       });
       const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "제출하지 못했습니다.");
+      if (!response.ok) {
+        setMessage(
+          getApprovedServerMessage(result.error, submitFailureMessage),
+        );
+        setSubmitting(false);
+        return;
+      }
       router.replace(`/intake/${token}/complete`);
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "제출하지 못했습니다.",
-      );
+    } catch {
+      setMessage(submitFailureMessage);
       setSubmitting(false);
     }
   }
 
+  function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
+    if (!isFinalIntakeStep(currentStepId)) {
+      event.preventDefault();
+      return;
+    }
+    void form.handleSubmit(submitFinal)(event);
+  }
+
   return (
     <FormProvider {...form}>
-      <form onSubmit={form.handleSubmit(submitFinal)}>
+      <form onSubmit={handleFormSubmit}>
         <input
           {...form.register("website")}
           className="sr-only"
@@ -214,7 +264,7 @@ export function IntakeShell({
 
         <div className="mx-auto grid max-w-6xl gap-10 px-5 py-10 sm:px-8 sm:py-16 lg:grid-cols-[minmax(0,1fr)_17rem]">
           <main>
-            {step === 0 ? (
+            {stepIndex === 0 ? (
               <section className="mb-12 border-l-4 border-[var(--navy-950)] pl-5 sm:pl-7">
                 <p className="text-xs font-bold tracking-[0.18em] text-[var(--navy-700)] uppercase">
                   {bundle.businessName} 사전 진단
@@ -250,7 +300,7 @@ export function IntakeShell({
             <section>
               <div className="mb-8">
                 <p className="text-xs font-black tracking-[0.18em] text-[var(--navy-700)]">
-                  {String(step + 1).padStart(2, "0")} /{" "}
+                  {String(stepIndex + 1).padStart(2, "0")} /{" "}
                   {String(sections.length).padStart(2, "0")}
                 </p>
                 <h1 className="mt-4 text-3xl leading-tight font-black tracking-[-0.05em] sm:text-5xl">
@@ -299,6 +349,9 @@ export function IntakeShell({
               {currentSection.key === "confirmation" ? (
                 <SafetyReminder />
               ) : null}
+              {currentSection.key === "current_business" ? (
+                <KmongContactNotice />
+              ) : null}
             </section>
 
             {message ? (
@@ -313,7 +366,7 @@ export function IntakeShell({
             <div className="mt-10 flex flex-col-reverse gap-3 border-t border-[var(--navy-300)] pt-6 sm:flex-row sm:items-center sm:justify-between">
               <button
                 type="button"
-                disabled={step === 0}
+                disabled={stepIndex === 0}
                 onClick={() => moveStep(-1)}
                 className="inline-flex min-h-14 items-center justify-center gap-2 px-5 text-sm font-bold disabled:opacity-30"
               >
@@ -329,7 +382,7 @@ export function IntakeShell({
                   <Save className="size-4" />{" "}
                   {saving ? "저장 중" : "여기까지 저장"}
                 </button>
-                {step < sections.length - 1 ? (
+                {!isFinalIntakeStep(currentStepId) ? (
                   <button
                     type="button"
                     onClick={() => moveStep(1)}
@@ -367,11 +420,11 @@ export function IntakeShell({
                   <li key={section.key}>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (index <= step || validateSection(step))
-                          setStep(index);
-                      }}
-                      className={`w-full border-l-2 px-4 py-3 text-left text-xs leading-5 ${index === step ? "border-[var(--navy-950)] font-black" : index < step ? "border-[var(--navy-300)] font-bold text-[var(--navy-700)]" : "border-transparent text-[var(--navy-300)]"}`}
+                      disabled={
+                        !canSelectIntakeStep(currentStepId, section.key)
+                      }
+                      onClick={() => setCurrentStepId(section.key)}
+                      className={`w-full border-l-2 px-4 py-3 text-left text-xs leading-5 disabled:cursor-default ${index === stepIndex ? "border-[var(--navy-950)] font-black" : index < stepIndex ? "border-[var(--navy-300)] font-bold text-[var(--navy-700)]" : "border-transparent text-[var(--navy-300)]"}`}
                     >
                       {index + 1}. {section.title}
                     </button>
@@ -408,4 +461,23 @@ function SafetyReminder() {
       </ul>
     </div>
   );
+}
+
+function KmongContactNotice() {
+  return (
+    <div className="mt-8 border-l-2 border-[var(--navy-950)] bg-[var(--neutral-100)] p-5 text-sm leading-6 text-[var(--navy-700)]">
+      <p className="font-black text-[var(--navy-950)]">연락 방법 안내</p>
+      <p className="mt-2">
+        크몽을 통해 접수한 상담은 크몽 메시지에서만 이어갑니다. 전화·문자·
+        카카오톡·이메일 등 외부 연락 방법은 별도로 선택하거나 요청하지 않습니다.
+      </p>
+    </div>
+  );
+}
+
+function getApprovedServerMessage(
+  message: string | undefined,
+  fallback: string,
+): string {
+  return message && approvedServerMessages.has(message) ? message : fallback;
 }

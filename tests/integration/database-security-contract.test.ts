@@ -148,4 +148,27 @@ describe("seeded question-module catalog", () => {
       expect(catalog).toContain(`'${moduleKey}'`);
     }
   });
+
+  it("removes the external contact choice with an idempotent targeted migration", () => {
+    const migration = readFileSync(
+      join(
+        migrationDirectory,
+        "202607180013_remove_external_contact_choice.sql",
+      ),
+      "utf8",
+    );
+
+    expect(migration).toMatch(/^begin;/);
+    expect(migration.trimEnd()).toMatch(/commit;$/);
+    expect(migration).toContain("update public.question_modules");
+    expect(migration).toContain("module_key = 'common_business_identity'");
+    expect(migration).toContain(
+      "question->>'key' <> 'preferred_contact_method'",
+    );
+    expect(migration).toContain(
+      "question->>'key' = 'preferred_contact_method'",
+    );
+    expect(migration).not.toMatch(/delete\s+from\s+public\.question_modules/i);
+    expect(migration).not.toMatch(/grant|revoke|row level security/i);
+  });
 });

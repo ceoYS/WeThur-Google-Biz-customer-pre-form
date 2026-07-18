@@ -149,6 +149,24 @@ export const intakePayloadSchema = z
 export type IntakePayloadInput = z.input<typeof intakePayloadSchema>;
 export type ValidatedIntakePayload = z.output<typeof intakePayloadSchema>;
 
+export function safeParseIntakePayload(input: unknown) {
+  return intakePayloadSchema.safeParse(withoutUndefinedAnswers(input));
+}
+
+function withoutUndefinedAnswers(input: unknown): unknown {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return input;
+  const answers = (input as { answers?: unknown }).answers;
+  if (!answers || typeof answers !== "object" || Array.isArray(answers)) {
+    return input;
+  }
+  return {
+    ...input,
+    answers: Object.fromEntries(
+      Object.entries(answers).filter(([, value]) => value !== undefined),
+    ),
+  };
+}
+
 export const evidenceUploadMetadataSchema = z
   .object({
     evidenceCategory: z

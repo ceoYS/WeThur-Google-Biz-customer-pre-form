@@ -5,6 +5,7 @@ import {
   findMissingRequiredAnswers,
 } from "@/lib/intake-validation";
 import type { ComposedQuestion } from "@/lib/question-modules";
+import { safeParseIntakePayload } from "@/lib/schemas/intake";
 
 const requiredConfirmation: ComposedQuestion = {
   key: "final_confirmation",
@@ -54,5 +55,29 @@ describe("final intake validation", () => {
     expect(canSubmitIntake("draft")).toBe(true);
     expect(canSubmitIntake("reopened")).toBe(true);
     expect(canSubmitIntake("submitted")).toBe(false);
+  });
+
+  it("omits only undefined optional answers before draft validation", () => {
+    const result = safeParseIntakePayload({
+      schemaVersion: 1,
+      answers: {
+        unanswered_optional: undefined,
+        intentionally_empty: "",
+        explicitly_unknown: null,
+        answered: "확인이 필요해요",
+      },
+      historyEvents: [],
+      profileCandidates: [],
+      thirdParties: [],
+      website: "",
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.answers).toEqual({
+      intentionally_empty: "",
+      explicitly_unknown: null,
+      answered: "확인이 필요해요",
+    });
   });
 });

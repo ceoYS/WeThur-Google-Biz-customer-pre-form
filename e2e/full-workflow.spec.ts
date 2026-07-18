@@ -75,8 +75,10 @@ test("complete administrator and customer case workflow", async ({
   await test.step("6-8. customer opens the link, confirms prefilled information, and adds history", async () => {
     await page.goto(intakeUrl);
     await expect(page.getByText(`${businessName} 사전 진단`)).toBeVisible();
+    await expectIntakeStep(page, 1);
     await answerRequiredQuestions(page);
     await page.getByRole("button", { name: /다음 질문/ }).click();
+    await expectIntakeStep(page, 2);
     await answerRequiredQuestions(page);
     await page.getByRole("button", { name: "과거 등록 이력 추가" }).click();
     const historyCard = page
@@ -94,6 +96,8 @@ test("complete administrator and customer case workflow", async ({
       "안전하게 저장했습니다",
     );
     await page.reload();
+    await expectIntakeStep(page, 1);
+    await advance(page, 2);
     const resumed = await page
       .locator("input")
       .evaluateAll((inputs) =>
@@ -103,8 +107,11 @@ test("complete administrator and customer case workflow", async ({
       );
     expect(resumed).toBe(true);
 
-    await advance(page);
-    await advance(page);
+    await advance(page, 3);
+    await page.getByRole("button", { name: /이전/ }).click();
+    await expectIntakeStep(page, 2);
+    await advance(page, 3);
+    await advance(page, 4);
     await page.getByRole("button", { name: "다른 프로필 후보 추가" }).click();
     const addedProfile = page
       .locator("article")
@@ -116,7 +123,7 @@ test("complete administrator and customer case workflow", async ({
       "unknown",
     );
 
-    await advance(page);
+    await advance(page, 5);
     await page.locator('input[type="file"]').setInputFiles({
       name: "safe-fixture.png",
       mimeType: "image/png",
@@ -130,8 +137,8 @@ test("complete administrator and customer case workflow", async ({
   });
 
   await test.step("13. customer submits the final response", async () => {
-    await advance(page);
-    await advance(page);
+    await advance(page, 6);
+    await advance(page, 7);
     await answerRequiredQuestions(page);
     await page.getByRole("button", { name: "최종 제출하기" }).click();
     await expect(
@@ -213,9 +220,17 @@ test("complete administrator and customer case workflow", async ({
   });
 });
 
-async function advance(page: Page) {
+async function advance(page: Page, expectedStep: number) {
   await answerRequiredQuestions(page);
   await page.getByRole("button", { name: /다음 질문/ }).click();
+  await expectIntakeStep(page, expectedStep);
+}
+
+async function expectIntakeStep(page: Page, expectedStep: number) {
+  const counter = `${String(expectedStep).padStart(2, "0")} / 07`;
+  const progress = Math.round((expectedStep / 7) * 100);
+  await expect(page.getByText(counter, { exact: true })).toBeVisible();
+  await expect(page.getByText(`${progress}%`, { exact: true })).toBeVisible();
 }
 
 async function answerRequiredQuestions(page: Page) {
