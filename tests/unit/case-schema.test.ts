@@ -48,6 +48,38 @@ describe("case creation schema", () => {
     ).toBe(false);
   });
 
+  it("accepts configured profile metrics and rejects invalid values", () => {
+    const candidate = {
+      displayedName: "가상 프로필",
+      mapsUrl: "https://maps.example.test/synthetic",
+      displayedWebsite: "https://profile.example.test",
+      rating: 4.3,
+      reviewCount: 17,
+      possibleCreator: "가상 관리자",
+      customerControlsProfile: "확인 필요",
+      ownershipRequestStatus: "요청 전",
+      independentBusinessSignals: {},
+    };
+    expect(
+      createCaseSchema.safeParse({
+        ...validInput,
+        profileCandidates: [candidate],
+      }).success,
+    ).toBe(true);
+    expect(
+      createCaseSchema.safeParse({
+        ...validInput,
+        profileCandidates: [{ ...candidate, rating: 5.1 }],
+      }).success,
+    ).toBe(false);
+    expect(
+      createCaseSchema.safeParse({
+        ...validInput,
+        profileCandidates: [{ ...candidate, reviewCount: -1 }],
+      }).success,
+    ).toBe(false);
+  });
+
   it("generates non-sequential public-safe case codes", () => {
     const codes = new Set(
       Array.from({ length: 100 }, () => generateCaseCode()),

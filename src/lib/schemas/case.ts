@@ -41,10 +41,17 @@ export const profileCandidateSetupSchema = z.object({
   displayedName: z.string().trim().min(1).max(200),
   displayedAddress: optionalText(500),
   displayedFloor: optionalText(100),
+  mapPinNotes: optionalText(500),
   displayedPhone: optionalText(100),
   displayedWebsite: optionalUrl,
   displayedCategory: optionalText(200),
+  rating: z.number().min(0).max(5).optional(),
+  reviewCount: z.number().int().min(0).max(10_000_000).optional(),
+  possibleCreator: optionalText(200),
+  customerControlsProfile: optionalText(200),
+  ownershipRequestStatus: optionalText(200),
   relationNotes: optionalText(2_000),
+  independentBusinessSignals: z.record(z.string(), z.unknown()).default({}),
 });
 
 export const customQuestionSetupSchema = z

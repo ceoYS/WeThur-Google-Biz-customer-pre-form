@@ -155,6 +155,10 @@ describe("required customer information matrix", () => {
       ),
       "utf8",
     );
+    const caseSetup = readFileSync(
+      join(process.cwd(), "src", "lib", "case-setup.ts"),
+      "utf8",
+    );
     const workspaceView = readFileSync(
       join(
         process.cwd(),
@@ -168,7 +172,8 @@ describe("required customer information matrix", () => {
     );
 
     expect(workspace).not.toContain('.from("customer_goals")');
-    expect(editorPage).toContain('question.section_key !== "goals"');
+    expect(editorPage).toContain("loadCaseSetup");
+    expect(caseSetup).toContain('question.section_key !== "goals"');
     expect(workspaceView).not.toContain("고객이 원하는 결과");
   });
 });

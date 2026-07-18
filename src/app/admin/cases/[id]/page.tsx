@@ -16,6 +16,11 @@ import {
   intakeStatusLabels,
   type CaseStatus,
 } from "@/lib/case-status";
+import {
+  canChangeCaseSetup,
+  caseSetupCreateNewMessage,
+  caseSetupUnavailableMessage,
+} from "@/lib/case-setup";
 
 export const dynamic = "force-dynamic";
 
@@ -44,21 +49,35 @@ export default async function AdminCasePage({
           >
             ← 사건 대시보드
           </Link>
-          <div className="flex gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Link
               href={`/admin/cases/${workspace.case.id}/edit`}
-              className="min-h-11 px-3 py-3 text-sm font-bold"
+              className="min-h-11 border-b border-[var(--navy-950)] px-3 py-3 text-center text-sm font-bold"
             >
-              사건 설정 편집
+              사건 설정 수정
             </Link>
+            {canChangeCaseSetup(workspace.case.intake_status) ? (
+              <Link
+                href={`/admin/cases/${workspace.case.id}/clone`}
+                className="min-h-11 border-b border-[var(--navy-950)] px-3 py-3 text-center text-sm font-bold"
+              >
+                설정 복제 후 새 링크 만들기
+              </Link>
+            ) : null}
             <Link
               href={`/admin/cases/${workspace.case.id}/print`}
-              className="min-h-11 border-b border-[var(--navy-950)] px-3 py-3 text-sm font-bold"
+              className="min-h-11 border-b border-[var(--navy-950)] px-3 py-3 text-center text-sm font-bold"
             >
               인쇄용 사건 요약
             </Link>
           </div>
         </div>
+        {!canChangeCaseSetup(workspace.case.intake_status) ? (
+          <div className="mt-6 border-l-2 border-[var(--navy-950)] pl-4 text-sm leading-6 text-[var(--navy-700)]">
+            <p>{caseSetupUnavailableMessage}</p>
+            <p>{caseSetupCreateNewMessage}</p>
+          </div>
+        ) : null}
         <div className="mt-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-bold tracking-[0.18em] text-[var(--navy-700)] uppercase">

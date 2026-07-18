@@ -2,29 +2,39 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 
-import type { ModuleOption } from "@/components/admin/case-creation-form";
+import {
+  CaseCreationSuccess,
+  type CaseCreationResult,
+  type ModuleOption,
+} from "@/components/admin/case-creation-form";
 import { createCaseSchema, type CreateCaseInput } from "@/lib/schemas/case";
 
 const inputClass =
-  "min-h-12 w-full border border-[var(--navy-300)] bg-white px-3 text-sm";
+  "min-h-12 min-w-0 w-full border border-[var(--navy-300)] bg-white px-3 text-sm";
 
 export function CaseConfigurationEditor({
   caseId,
   modules,
   admins,
   initialValues,
+  mode = "edit",
 }: {
   caseId: string;
   modules: ModuleOption[];
   admins: Array<{ id: string; label: string }>;
   initialValues: CreateCaseInput;
+  mode?: "edit" | "clone";
 }) {
   const router = useRouter();
   const [message, setMessage] = useState("");
+  const [copyMessage, setCopyMessage] = useState("");
+  const [creationResult, setCreationResult] =
+    useState<CaseCreationResult | null>(null);
   const {
     register,
     control,
@@ -71,18 +81,54 @@ export function CaseConfigurationEditor({
 
   async function save(values: CreateCaseInput) {
     setMessage("");
-    const response = await fetch(`/api/admin/cases/${caseId}/configuration`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(createCaseSchema.parse(values)),
-    });
-    const result = (await response.json()) as { error?: string };
+    const response = await fetch(
+      mode === "clone"
+        ? `/api/admin/cases/${caseId}/clone`
+        : `/api/admin/cases/${caseId}/configuration`,
+      {
+        method: mode === "clone" ? "POST" : "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(createCaseSchema.parse(values)),
+      },
+    );
+    const result = (await response.json()) as CaseCreationResult & {
+      error?: string;
+    };
     if (!response.ok) {
-      setMessage(result.error ?? "사건 설정을 저장하지 못했습니다.");
+      setMessage(
+        result.error ??
+          (mode === "clone"
+            ? "새 사건과 보안 링크를 만들지 못했습니다."
+            : "사건 설정을 저장하지 못했습니다."),
+      );
       return;
     }
-    setMessage("사건 설정을 저장했습니다.");
+    if (mode === "clone") {
+      setCreationResult(result);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    setMessage(
+      "사건 설정을 저장했습니다. 기존 고객 링크에는 변경된 설정이 반영됩니다.",
+    );
     router.refresh();
+  }
+
+  async function copy(text: string, copyStatus: string) {
+    await navigator.clipboard.writeText(text);
+    setCopyMessage(copyStatus);
+  }
+
+  if (creationResult) {
+    return (
+      <CaseCreationSuccess
+        result={creationResult}
+        title="새 사건과 보안 링크를 만들었습니다."
+        copyMessage={copyMessage}
+        onCopy={copy}
+        sourceCaseId={caseId}
+      />
+    );
   }
 
   return (
@@ -276,10 +322,22 @@ export function CaseConfigurationEditor({
                     className={inputClass}
                   />
                 </Field>
+                <Field label="지도 핀 메모">
+                  <input
+                    {...register(`profileCandidates.${index}.mapPinNotes`)}
+                    className={inputClass}
+                  />
+                </Field>
                 <Field label="전화">
                   <input
                     {...register(`profileCandidates.${index}.displayedPhone`)}
                     className={inputClass}
+                  />
+                </Field>
+                <Field label="웹사이트">
+                  <input
+                    {...register(`profileCandidates.${index}.displayedWebsite`)}
+                    className={`${inputClass} min-w-0`}
                   />
                 </Field>
                 <Field label="카테고리">
@@ -290,7 +348,61 @@ export function CaseConfigurationEditor({
                     className={inputClass}
                   />
                 </Field>
+                <Field label="평점">
+                  <input
+                    {...register(`profileCandidates.${index}.rating`, {
+                      setValueAs: (value) =>
+                        value === "" ? undefined : Number(value),
+                    })}
+                    type="number"
+                    min={0}
+                    max={5}
+                    step="0.1"
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="리뷰 수">
+                  <input
+                    {...register(`profileCandidates.${index}.reviewCount`, {
+                      setValueAs: (value) =>
+                        value === "" ? undefined : Number(value),
+                    })}
+                    type="number"
+                    min={0}
+                    step="1"
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="알려진 등록자·관리자">
+                  <input
+                    {...register(`profileCandidates.${index}.possibleCreator`)}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="고객 계정의 관리 가능 여부">
+                  <input
+                    {...register(
+                      `profileCandidates.${index}.customerControlsProfile`,
+                    )}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="소유권 요청 상태">
+                  <input
+                    {...register(
+                      `profileCandidates.${index}.ownershipRequestStatus`,
+                    )}
+                    className={inputClass}
+                  />
+                </Field>
               </div>
+              <Field label="관계 메모">
+                <textarea
+                  {...register(`profileCandidates.${index}.relationNotes`)}
+                  rows={3}
+                  className={`${inputClass} py-3`}
+                />
+              </Field>
             </Repeater>
           ))}
         </div>
@@ -302,10 +414,17 @@ export function CaseConfigurationEditor({
               mapsUrl: "",
               displayedAddress: "",
               displayedFloor: "",
+              mapPinNotes: "",
               displayedPhone: "",
               displayedWebsite: "",
               displayedCategory: "",
+              rating: undefined,
+              reviewCount: undefined,
+              possibleCreator: "",
+              customerControlsProfile: "",
+              ownershipRequestStatus: "",
               relationNotes: "",
+              independentBusinessSignals: {},
             })
           }
         />
@@ -416,13 +535,27 @@ export function CaseConfigurationEditor({
           {message}
         </p>
       ) : null}
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="min-h-14 bg-[var(--navy-950)] px-7 font-bold text-white disabled:opacity-50"
-      >
-        {isSubmitting ? "저장 중" : "사건 설정 저장"}
-      </button>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="min-h-14 bg-[var(--navy-950)] px-7 font-bold text-white disabled:opacity-50"
+        >
+          {isSubmitting
+            ? mode === "clone"
+              ? "새 사건 생성 중"
+              : "저장 중"
+            : mode === "clone"
+              ? "새 사건과 보안 링크 만들기"
+              : "사건 설정 저장"}
+        </button>
+        <Link
+          href={`/admin/cases/${caseId}`}
+          className="min-h-12 px-5 py-3 text-center text-sm font-bold"
+        >
+          {mode === "clone" ? "원본 사건으로 돌아가기" : "수정 취소"}
+        </Link>
+      </div>
     </form>
   );
 }

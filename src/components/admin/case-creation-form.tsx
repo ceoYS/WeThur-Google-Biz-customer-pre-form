@@ -19,7 +19,7 @@ export type ModuleOption = {
 
 type AdminOption = { id: string; label: string };
 
-type CreationResult = {
+export type CaseCreationResult = {
   caseId: string;
   caseCode: string;
   intakeUrl: string;
@@ -54,7 +54,7 @@ export function CaseCreationForm({
     (module) => module.moduleType === "issue",
   );
   const industryIds = new Set(industryModules.map((module) => module.id));
-  const [result, setResult] = useState<CreationResult | null>(null);
+  const [result, setResult] = useState<CaseCreationResult | null>(null);
   const [serverError, setServerError] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
 
@@ -124,7 +124,7 @@ export function CaseCreationForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(parsed),
     });
-    const responseBody = (await response.json()) as CreationResult & {
+    const responseBody = (await response.json()) as CaseCreationResult & {
       error?: string;
     };
     if (!response.ok) {
@@ -140,84 +140,15 @@ export function CaseCreationForm({
     setCopyMessage(message);
   }
 
-  if (result) {
-    const messageTemplate = `대표님, Google 지도 등록 흐름을 안전하게 확인하기 위한 WeThru 사전 진단 링크입니다.\n\n${result.intakeUrl}\n\n정확히 기억나지 않는 내용은 ‘잘 모르겠어요’를 선택하셔도 됩니다. Google 비밀번호나 인증번호는 입력하지 말아주세요.`;
+  if (result)
     return (
-      <section className="mx-auto max-w-3xl py-10">
-        <div className="border-l-4 border-[var(--navy-950)] pl-6">
-          <Check className="size-7" />
-          <h1 className="mt-6 text-4xl font-black tracking-[-0.05em]">
-            고객 사건을 만들었습니다.
-          </h1>
-          <p className="mt-3 text-sm text-[var(--navy-700)]">
-            사건 코드 {result.caseCode}
-          </p>
-        </div>
-        <div className="mt-12 border-y border-[var(--navy-300)] py-7">
-          <p className="text-xs font-bold tracking-[0.16em] text-[var(--navy-700)] uppercase">
-            보안 고객 링크
-          </p>
-          <p className="mt-4 text-sm leading-7 break-all">{result.intakeUrl}</p>
-          <p className="mt-3 text-xs leading-5 text-[var(--navy-700)]">
-            원본 링크는 보안상 저장하지 않습니다. 지금 복사하거나, 나중에 사건
-            화면에서 새 링크를 만들어주세요.
-          </p>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() =>
-                copy(result.intakeUrl, "고객 링크를 복사했습니다.")
-              }
-              className="inline-flex min-h-11 items-center gap-2 bg-[var(--navy-950)] px-4 text-sm font-bold text-white"
-            >
-              <Copy className="size-4" /> 링크 복사
-            </button>
-            <a
-              href={result.intakeUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex min-h-11 items-center gap-2 border border-[var(--navy-950)] px-4 text-sm font-bold"
-            >
-              <ExternalLink className="size-4" /> 고객 화면 미리보기
-            </a>
-          </div>
-        </div>
-        <div className="mt-10">
-          <h2 className="text-lg font-bold">고객 안내 문구</h2>
-          <pre className="mt-4 border-l-2 border-[var(--navy-300)] pl-5 font-[inherit] text-sm leading-7 whitespace-pre-wrap text-[var(--navy-700)]">
-            {messageTemplate}
-          </pre>
-          <button
-            type="button"
-            onClick={() => copy(messageTemplate, "안내 문구를 복사했습니다.")}
-            className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-bold"
-          >
-            <Copy className="size-4" /> 안내 문구 복사
-          </button>
-        </div>
-        {copyMessage ? (
-          <p role="status" className="mt-4 text-sm font-bold">
-            {copyMessage}
-          </p>
-        ) : null}
-        <div className="mt-12 flex flex-wrap gap-4 border-t border-[var(--navy-300)] pt-7">
-          <Link
-            href={`/admin/cases/${result.caseId}`}
-            className="min-h-12 bg-[var(--navy-950)] px-5 py-3 text-sm font-bold text-white"
-          >
-            사건 화면 열기
-          </Link>
-          <button
-            type="button"
-            onClick={() => setResult(null)}
-            className="min-h-12 px-5 py-3 text-sm font-bold"
-          >
-            다른 사건 만들기
-          </button>
-        </div>
-      </section>
+      <CaseCreationSuccess
+        result={result}
+        copyMessage={copyMessage}
+        onCopy={copy}
+        onReset={() => setResult(null)}
+      />
     );
-  }
 
   return (
     <form onSubmit={handleSubmit(submitCase)} className="pb-24">
@@ -694,6 +625,108 @@ export function CaseCreationForm({
         </aside>
       </div>
     </form>
+  );
+}
+
+export function CaseCreationSuccess({
+  result,
+  title = "고객 사건을 만들었습니다.",
+  copyMessage,
+  onCopy,
+  onReset,
+  sourceCaseId,
+}: {
+  result: CaseCreationResult;
+  title?: string;
+  copyMessage: string;
+  onCopy: (text: string, message: string) => Promise<void>;
+  onReset?: () => void;
+  sourceCaseId?: string;
+}) {
+  const messageTemplate = `대표님, Google 지도 등록 흐름을 안전하게 확인하기 위한 WeThru 사전 진단 링크입니다.\n\n${result.intakeUrl}\n\n정확히 기억나지 않는 내용은 ‘잘 모르겠어요’를 선택하셔도 됩니다. Google 비밀번호나 인증번호는 입력하지 말아주세요.`;
+
+  return (
+    <section className="mx-auto max-w-3xl py-10">
+      <div className="border-l-4 border-[var(--navy-950)] pl-6">
+        <Check className="size-7" />
+        <h1 className="mt-6 text-4xl font-black tracking-[-0.05em]">{title}</h1>
+        <p className="mt-3 text-sm text-[var(--navy-700)]">
+          사건 코드 {result.caseCode}
+        </p>
+      </div>
+      <div className="mt-12 border-y border-[var(--navy-300)] py-7">
+        <p className="text-xs font-bold tracking-[0.16em] text-[var(--navy-700)] uppercase">
+          보안 고객 링크
+        </p>
+        <p className="mt-4 text-sm leading-7 break-all">{result.intakeUrl}</p>
+        <p className="mt-3 text-xs leading-5 text-[var(--navy-700)]">
+          원본 링크는 보안상 저장하지 않습니다. 지금 복사하거나, 나중에 사건
+          화면에서 새 링크를 만들어주세요.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() =>
+              onCopy(result.intakeUrl, "고객 링크를 복사했습니다.")
+            }
+            className="inline-flex min-h-11 items-center gap-2 bg-[var(--navy-950)] px-4 text-sm font-bold text-white"
+          >
+            <Copy className="size-4" /> 링크 복사
+          </button>
+          <a
+            href={result.intakeUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-11 items-center gap-2 border border-[var(--navy-950)] px-4 text-sm font-bold"
+          >
+            <ExternalLink className="size-4" /> 고객 화면 미리보기
+          </a>
+        </div>
+      </div>
+      <div className="mt-10">
+        <h2 className="text-lg font-bold">고객 안내 문구</h2>
+        <pre className="mt-4 border-l-2 border-[var(--navy-300)] pl-5 font-[inherit] text-sm leading-7 whitespace-pre-wrap text-[var(--navy-700)]">
+          {messageTemplate}
+        </pre>
+        <button
+          type="button"
+          onClick={() => onCopy(messageTemplate, "안내 문구를 복사했습니다.")}
+          className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-bold"
+        >
+          <Copy className="size-4" /> 안내 문구 복사
+        </button>
+      </div>
+      {copyMessage ? (
+        <p role="status" className="mt-4 text-sm font-bold">
+          {copyMessage}
+        </p>
+      ) : null}
+      <div className="mt-12 flex flex-wrap gap-4 border-t border-[var(--navy-300)] pt-7">
+        <Link
+          href={`/admin/cases/${result.caseId}`}
+          className="min-h-12 bg-[var(--navy-950)] px-5 py-3 text-sm font-bold text-white"
+        >
+          {sourceCaseId ? "새 사건 화면 열기" : "사건 화면 열기"}
+        </Link>
+        {sourceCaseId ? (
+          <Link
+            href={`/admin/cases/${sourceCaseId}`}
+            className="min-h-12 px-5 py-3 text-sm font-bold"
+          >
+            원본 사건으로 돌아가기
+          </Link>
+        ) : null}
+        {onReset ? (
+          <button
+            type="button"
+            onClick={onReset}
+            className="min-h-12 px-5 py-3 text-sm font-bold"
+          >
+            다른 사건 만들기
+          </button>
+        ) : null}
+      </div>
+    </section>
   );
 }
 

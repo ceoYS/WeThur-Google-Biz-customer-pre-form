@@ -920,6 +920,9 @@ function formatDateTime(value: string): string {
 function activityLabel(action: string): string {
   const labels: Record<string, string> = {
     case_created: "사건 생성",
+    case_configuration_updated: "사건 설정 수정",
+    case_setup_updated: "사건 설정 수정",
+    case_cloned: "설정 복제로 새 사건 생성",
     customer_draft_saved: "고객 임시 저장",
     evidence_uploaded: "증빙 업로드",
     evidence_deleted_before_submission: "제출 전 증빙 삭제",

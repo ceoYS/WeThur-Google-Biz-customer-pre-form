@@ -42,11 +42,19 @@ export async function PUT(
         p_actor_id: admin.id,
       },
     );
-    if (error?.message.includes("configuration_locked"))
+    if (error?.message.includes("case_not_found"))
+      return NextResponse.json(
+        { error: "사건을 찾을 수 없습니다." },
+        { status: 404 },
+      );
+    if (
+      error?.message.includes("configuration_not_editable") ||
+      error?.message.includes("configuration_locked")
+    )
       return NextResponse.json(
         {
           error:
-            "제출 완료 또는 다시 열린 사건의 질문 설정은 변경할 수 없습니다.",
+            "고객이 이미 작성을 시작했거나 제출을 완료하여 사건 설정을 수정할 수 없습니다.",
         },
         { status: 409 },
       );
@@ -55,7 +63,10 @@ export async function PUT(
         { error: "사건 설정을 저장하지 못했습니다." },
         { status: 400 },
       );
-    return NextResponse.json({ updated: true });
+    return NextResponse.json(
+      { updated: true },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error) {
     if (error instanceof RequestSecurityError)
       return NextResponse.json(
