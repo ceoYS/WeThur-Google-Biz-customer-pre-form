@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 
 import { createCaseSchema, type CreateCaseInput } from "@/lib/schemas/case";
+import { defaultRequestedEvidence } from "@/lib/required-information";
 
 export type ModuleOption = {
   id: string;
@@ -29,20 +30,6 @@ const defaultIntroduction = `대표님, 이번 질문은 누가 잘못했는지 
 예전에 Google 지도 등록이 어떤 흐름으로 진행됐는지 함께 정리해서, 같은 문제가 반복되지 않도록 원인을 좁히기 위한 과정입니다.
 
 정확한 날짜나 내용이 기억나지 않으셔도 괜찮습니다. 기억나는 범위에서 적어주시고, 모르는 항목은 ‘잘 모르겠어요’를 선택해주세요.`;
-
-const defaultEvidence = [
-  ["exterior_photo", "건물 외관 사진"],
-  ["permanent_sign_photo", "상시 간판 사진"],
-  ["entrance_photo", "고객 출입구 사진"],
-  ["business_registration", "사업자등록증"],
-  ["operating_permit", "영업허가증 또는 신고증"],
-  ["past_google_email", "과거 Google 정지 안내 이메일"],
-].map(([evidenceCategory, label]) => ({
-  evidenceCategory,
-  label,
-  helpText: "불필요한 개인정보는 가린 뒤 제출해주세요.",
-  required: false,
-}));
 
 const inputClass =
   "min-h-12 w-full rounded-none border border-[var(--navy-300)] bg-white px-4 text-sm text-[var(--navy-950)] placeholder:text-[var(--navy-300)]";
@@ -91,7 +78,7 @@ export function CaseCreationForm({
       knownFacts: [],
       profileCandidates: [],
       customQuestions: [],
-      requestedEvidence: defaultEvidence,
+      requestedEvidence: defaultRequestedEvidence,
       assignedAdminId: currentAdminId,
       website: "",
     },
@@ -374,6 +361,12 @@ export function CaseCreationForm({
               실제 고객 답변이 아닌 사전 확인 정보입니다. 출처와 고객 수정 가능
               여부를 함께 저장합니다.
             </p>
+            <p className="text-xs leading-6 text-[var(--navy-700)]">
+              이미 확보한 상호는 registration_name, 주소는 official_address,
+              업종·종목은 primary_activity, 과거 정지·검색 제외 사실은
+              overall_history로 넣으면 고객 화면에 값이 채워진 상태로
+              표시됩니다.
+            </p>
             <div className="space-y-4">
               {facts.fields.map((field, index) => (
                 <Repeater
@@ -553,7 +546,6 @@ export function CaseCreationForm({
                         <option value="changes">변경과 담당자</option>
                         <option value="profile_candidates">현재 프로필</option>
                         <option value="evidence">증빙</option>
-                        <option value="goals">목표</option>
                         <option value="confirmation">마지막 확인</option>
                       </select>
                     </Field>

@@ -1,7 +1,11 @@
 import type { CaseWorkspace } from "@/lib/case-workspace";
 
 export type CaseExportType =
-  "json" | "case" | "history" | "profiles" | "evidence";
+  | "json"
+  | "case"
+  | "history"
+  | "profiles"
+  | "evidence";
 
 export function buildCaseJsonExport(workspace: CaseWorkspace) {
   return {
@@ -26,7 +30,6 @@ export function buildCaseJsonExport(workspace: CaseWorkspace) {
         "current_profile_candidate_id",
       ]),
     ),
-    goals: workspace.goals,
     diagnosis: workspace.diagnosis,
     facts: workspace.facts.map((fact) =>
       withoutKeys(fact, ["id", "source_id"]),

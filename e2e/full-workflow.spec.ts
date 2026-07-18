@@ -87,7 +87,7 @@ test("complete administrator and customer case workflow", async ({
     await fieldIn(historyCard, "언제쯤이었나요?").fill("2025년 봄쯤");
     await fieldIn(historyCard, "누가 진행했나요?").fill("가상 대행사");
     await fieldIn(historyCard, "사용한 프로필 이름").fill("가상 과거 프로필");
-    await fieldIn(historyCard, "어떤 결과였나요?").fill("검색에서 사라짐");
+    await fieldIn(historyCard, "결과").selectOption("disappeared");
   });
 
   await test.step("9-12. customer adds a current profile, uploads evidence, saves, and resumes", async () => {
@@ -132,13 +132,12 @@ test("complete administrator and customer case workflow", async ({
         "base64",
       ),
     });
-    await page.getByRole("button", { name: "비공개로 업로드" }).click();
+    await page.getByRole("button", { name: "자료 안전하게 업로드" }).click();
     await expect(page.getByText("safe-fixture.png")).toBeVisible();
   });
 
   await test.step("13. customer submits the final response", async () => {
     await advance(page, 6);
-    await advance(page, 7);
     await answerRequiredQuestions(page);
     await page.getByRole("button", { name: "최종 제출하기" }).click();
     await expect(
@@ -227,8 +226,8 @@ async function advance(page: Page, expectedStep: number) {
 }
 
 async function expectIntakeStep(page: Page, expectedStep: number) {
-  const counter = `${String(expectedStep).padStart(2, "0")} / 07`;
-  const progress = Math.round((expectedStep / 7) * 100);
+  const counter = `${String(expectedStep).padStart(2, "0")} / 06`;
+  const progress = Math.round((expectedStep / 6) * 100);
   await expect(page.getByText(counter, { exact: true })).toBeVisible();
   await expect(page.getByText(`${progress}%`, { exact: true })).toBeVisible();
 }

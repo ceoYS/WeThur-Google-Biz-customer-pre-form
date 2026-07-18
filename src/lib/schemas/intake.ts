@@ -19,6 +19,14 @@ const answerValueSchema = z.union([
   z.null(),
 ]);
 
+const answersSchema = z
+  .record(z.string().regex(/^[a-z0-9_]+$/), answerValueSchema.optional())
+  .transform((answers) =>
+    Object.fromEntries(
+      Object.entries(answers).filter(([, value]) => value !== undefined),
+    ),
+  );
+
 export const historyEventInputSchema = z
   .object({
     clientId: z.uuid(),
@@ -105,7 +113,7 @@ export const thirdPartyInputSchema = z
 export const intakePayloadSchema = z
   .object({
     schemaVersion: z.literal(1),
-    answers: z.record(z.string().regex(/^[a-z0-9_]+$/), answerValueSchema),
+    answers: answersSchema,
     historyEvents: z.array(historyEventInputSchema).max(10),
     profileCandidates: z.array(profileCandidateInputSchema).max(10),
     thirdParties: z.array(thirdPartyInputSchema).max(10),

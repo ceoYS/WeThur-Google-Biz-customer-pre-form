@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { intakeStepIds } from "@/lib/intake-steps";
 import { isCredentialCollectionQuestion } from "@/lib/question-modules";
 
 const optionalText = (maximum: number) =>
@@ -48,15 +49,7 @@ export const profileCandidateSetupSchema = z.object({
 
 export const customQuestionSetupSchema = z
   .object({
-    sectionKey: z.enum([
-      "current_business",
-      "history_summary",
-      "changes",
-      "profile_candidates",
-      "evidence",
-      "goals",
-      "confirmation",
-    ]),
+    sectionKey: z.enum(intakeStepIds),
     questionKey: z
       .string()
       .regex(/^[a-z0-9_]+$/)

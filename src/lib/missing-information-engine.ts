@@ -1,7 +1,7 @@
 import type { DiagnosisResult } from "@/lib/diagnosis-engine";
 import type { ValidatedIntakePayload } from "@/lib/schemas/intake";
 
-export const MISSING_INFORMATION_ENGINE_VERSION = "1.0.0";
+export const MISSING_INFORMATION_ENGINE_VERSION = "1.1.0";
 
 export type MissingInformationItem = {
   key: string;
@@ -113,6 +113,30 @@ export function generateMissingInformation(input: {
       message:
         "과거 정지 안내나 이의신청 관련 이메일이 남아 있다면, 비밀번호나 인증번호는 가리고 현재 상태가 보이는 화면만 전달 부탁드립니다.",
       requestedItems: ["과거 Google 안내 이메일", "이의신청 상태 화면"],
+    });
+  }
+
+  if (isUnknown(answers.verification_methods_used)) {
+    addItem(items, {
+      key: "verification_methods_used",
+      category: "fact",
+      priority: 9,
+      title: "과거 인증 방식 확인",
+      reason: "인증 요청과 실제 현장·권한 조건을 비교하는 기준입니다.",
+      recommendedAction:
+        "영상, 전화·문자, 이메일, 우편 중 기억나는 방식만 확인합니다.",
+    });
+  }
+
+  if (isUnknown(answers.google_notice_type)) {
+    addItem(items, {
+      key: "google_notice_type",
+      category: "fact",
+      priority: 8,
+      title: "Google 안내 유형 확인",
+      reason: "정지·삭제 원인을 고객의 추측이 아닌 실제 안내로 좁힙니다.",
+      recommendedAction:
+        "과거 이메일이나 정지 화면에서 안내 유형과 현재 상태를 확인합니다.",
     });
   }
 
@@ -276,7 +300,13 @@ function collect(
 }
 
 function isUnknown(value: unknown) {
-  const normalized = text(value).toLocaleLowerCase("ko-KR");
+  const normalized = (
+    Array.isArray(value)
+      ? value
+          .filter((item): item is string => typeof item === "string")
+          .join(" ")
+      : text(value)
+  ).toLocaleLowerCase("ko-KR");
   return (
     !normalized ||
     /모르|몰라|기억나지|확인.*필요|unknown|needs_confirmation/.test(normalized)

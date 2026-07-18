@@ -171,4 +171,23 @@ describe("seeded question-module catalog", () => {
     expect(migration).not.toMatch(/delete\s+from\s+public\.question_modules/i);
     expect(migration).not.toMatch(/grant|revoke|row level security/i);
   });
+
+  it("retires goals and adds required history facts without changing security", () => {
+    const migration = readFileSync(
+      join(migrationDirectory, "202607180014_customer_ready_questionnaire.sql"),
+      "utf8",
+    );
+
+    expect(migration).toMatch(/^begin;/);
+    expect(migration.trimEnd()).toMatch(/commit;$/);
+    expect(migration).toContain("('priority_goals')");
+    expect(migration).toContain("('success_definition')");
+    expect(migration).toContain("('process_expectation')");
+    expect(migration).toContain('"key":"verification_methods_used"');
+    expect(migration).toContain('"key":"google_notice_type"');
+    expect(migration).toContain("module_key = 'common_history'");
+    expect(migration).toContain("is_active = false");
+    expect(migration).not.toMatch(/delete\s+from\s+public\.question_modules/i);
+    expect(migration).not.toMatch(/grant|revoke|row level security/i);
+  });
 });

@@ -14,6 +14,7 @@ import {
   intakePayloadSchema,
   type IntakePayloadInput,
 } from "@/lib/schemas/intake";
+import { prefillFieldPresentation } from "@/lib/required-information";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { hashIntakeToken, intakeTokenSchema } from "@/lib/tokens";
 
@@ -128,15 +129,6 @@ export type PublicIntakeBundle = {
   requestedEvidence: PublicRequestedEvidence[];
   evidenceFiles: PublicEvidenceFile[];
   draftPayload: IntakePayloadInput | null;
-};
-
-const prefillLabels: Record<string, string> = {
-  official_address: "미리 확인한 사업장 주소가 맞나요?",
-  registration_name: "미리 확인한 사업자등록 상호가 맞나요?",
-  sign_name: "미리 확인한 외부 간판명이 맞나요?",
-  floor_structure: "미리 확인한 사용 층 정보가 맞나요?",
-  official_phone: "미리 확인한 대표 전화번호가 맞나요?",
-  official_website: "미리 확인한 공식 웹사이트가 맞나요?",
 };
 
 function mapCustomQuestion(row: CustomQuestionRow): QuestionDefinition | null {
@@ -287,7 +279,9 @@ export async function loadPublicIntakeBundle(
       .map((field, index) => ({
         fieldKey: field.field_key,
         label:
-          prefillLabels[field.field_key] ?? `${field.field_key} 항목이 맞나요?`,
+          prefillFieldPresentation[field.field_key]?.label ??
+          `미리 확인한 ${field.field_key} 값입니다. 맞는지 확인하고 다르면 수정해주세요.`,
+        sectionKey: prefillFieldPresentation[field.field_key]?.sectionKey,
         sortOrder: 5 + index,
       })),
   });
@@ -296,7 +290,9 @@ export async function loadPublicIntakeBundle(
     candidateResult.data ?? []
   ).map((candidate) => ({
     existingId: candidate.id,
-    clientId: crypto.randomUUID(),
+    // A configured candidate keeps one stable customer reference across reloads,
+    // so evidence linked before a draft save still attaches on final submission.
+    clientId: candidate.id,
     mapsUrl: candidate.maps_url ?? "",
     displayedName: candidate.displayed_name ?? "",
     displayedAddress: candidate.displayed_address ?? "",

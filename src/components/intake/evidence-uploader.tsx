@@ -110,7 +110,8 @@ export function EvidenceUploader({
       <h3 className="text-xl font-black tracking-[-0.03em]">요청드리는 자료</h3>
       <p className="mt-3 text-sm leading-7 text-[var(--navy-700)]">
         자료가 지금 없으면 나중에 확인해도 괜찮습니다. 주민등록번호, 전체 결제
-        정보, 가리지 않은 신분증은 보내지 마세요.
+        정보, 가리지 않은 신분증은 보내지 마세요. Google 비밀번호, OTP,
+        복구코드는 어떤 경우에도 업로드하지 마세요.
       </p>
       <ul className="mt-5 divide-y divide-[var(--navy-300)] border-y border-[var(--navy-300)]">
         {requestedEvidence.map((item) => (
@@ -198,6 +199,10 @@ export function EvidenceUploader({
           JPG, PNG, WebP, PDF · 파일당 15 MB · 전체 15개. 불필요한 개인정보는
           가려주세요.
         </p>
+        <p className="mt-3 text-sm leading-6 text-[var(--navy-700)]">
+          업로드한 자료는 외부에 공개되지 않으며, 해당 사건 검토 목적으로만
+          사용됩니다.
+        </p>
         <button
           type="button"
           disabled={pending || files.length >= 15}
@@ -205,7 +210,7 @@ export function EvidenceUploader({
           className="mt-5 inline-flex min-h-12 items-center gap-2 bg-[var(--navy-950)] px-5 text-sm font-bold text-white disabled:opacity-50"
         >
           <Upload className="size-4" />{" "}
-          {pending ? "처리 중" : "비공개로 업로드"}
+          {pending ? "처리 중" : "자료 안전하게 업로드"}
         </button>
       </div>
 

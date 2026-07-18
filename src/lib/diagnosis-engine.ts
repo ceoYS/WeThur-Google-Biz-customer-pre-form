@@ -1,9 +1,11 @@
 import type { ValidatedIntakePayload } from "@/lib/schemas/intake";
 
-export const DIAGNOSIS_ENGINE_VERSION = "1.0.0";
+export const DIAGNOSIS_ENGINE_VERSION = "1.1.0";
 
 export type DiagnosisConfidence =
-  "단서 적음" | "가능성 있음" | "우선 확인 필요";
+  | "단서 적음"
+  | "가능성 있음"
+  | "우선 확인 필요";
 
 export type DiagnosisCategory =
   | "duplicate_entity_fragmentation"
@@ -138,7 +140,7 @@ export function diagnoseCase(input: DiagnosisInput): DiagnosisResult {
     physicalEvidenceHypothesis(evidence),
     recreationHypothesis(creationAttempts, suspensionCount, history),
     independenceHypothesis(answers, profiles),
-    verificationHypothesis(history),
+    verificationHypothesis(answers, history),
     rebrandMoveHypothesis(answers, officialNames, addresses),
     thirdPartyHypothesis(
       thirdParties,
@@ -474,14 +476,23 @@ function independenceHypothesis(
 }
 
 function verificationHypothesis(
+  answers: Record<string, unknown>,
   history: DiagnosisInput["payload"]["historyEvents"],
 ): MutableHypothesis {
   const attempted = history.filter((event) => event.verificationMethod.trim());
   const failed = history.filter((event) =>
     /fail|reject|실패|거절/.test(`${event.approvalStatus} ${event.result}`),
   ).length;
-  const methods = distinct(attempted.map((event) => event.verificationMethod));
-  const points = clamp(failed * 25 + (methods.length > 1 ? 20 : 0));
+  const methods = distinct([
+    ...attempted.map((event) => event.verificationMethod),
+    ...stringArrayAnswer(answers, "verification_methods_used"),
+  ]);
+  const notice = textAnswer(answers, "google_notice_type");
+  const points = clamp(
+    failed * 25 +
+      (methods.length > 1 ? 20 : 0) +
+      (/인증 실패|추가 인증/.test(notice) ? 20 : 0),
+  );
   return base(
     "verification_process_mismatch",
     "요청된 인증 방식과 실제 현장·권한 조건이 맞지 않았을 가능성",
@@ -491,6 +502,7 @@ function verificationHypothesis(
       methods.length > 1
         ? `여러 인증 방식이 사용됐습니다: ${methods.join(", ")}`
         : "",
+      notice ? `고객이 확인한 Google 안내 유형: ${notice}` : "",
     ].filter(Boolean),
     [],
     ["각 인증에서 Google이 요청한 정확한 단계", "인증 당시 간판·출입 권한"],
@@ -664,6 +676,16 @@ function numberAnswer(
 ): number | null {
   const value = answers[key];
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function stringArrayAnswer(
+  answers: Record<string, unknown>,
+  key: string,
+): string[] {
+  const value = answers[key];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 function distinct(values: Array<string | null | undefined>): string[] {

@@ -57,7 +57,9 @@ type CandidateRow = {
   relation_notes: string | null;
 };
 type CustomRow = {
-  section_key: ValidatedCreateCaseInput["customQuestions"][number]["sectionKey"];
+  section_key:
+    | ValidatedCreateCaseInput["customQuestions"][number]["sectionKey"]
+    | "goals";
   question_key: string;
   label: string;
   help_text: string | null;
@@ -170,9 +172,11 @@ export default async function EditCasePage({
     customerContactChannel: item.customer_contact_channel ?? "",
     customerIntro: item.customer_intro,
     expectedCompletionMinutes: item.expected_completion_minutes,
-    moduleIds: (selectedResult.data ?? []).map(
-      (selected) => selected.module_id,
-    ),
+    moduleIds: (selectedResult.data ?? [])
+      .map((selected) => selected.module_id)
+      .filter((moduleId) =>
+        (moduleResult.data ?? []).some((module) => module.id === moduleId),
+      ),
     knownFacts: (factResult.data ?? []).map((fact) => ({
       fieldKey: fact.field_key,
       value: formatValue(fact.field_value),
@@ -191,25 +195,33 @@ export default async function EditCasePage({
       displayedCategory: profile.displayed_category ?? "",
       relationNotes: profile.relation_notes ?? "",
     })),
-    customQuestions: (customResult.data ?? []).map((question) => ({
-      sectionKey: question.section_key,
-      questionKey: question.question_key,
-      label: question.label,
-      helpText: question.help_text ?? "",
-      questionType: question.question_type,
-      choices: Array.isArray(question.choices)
-        ? question.choices.filter(
-            (choice): choice is string => typeof choice === "string",
-          )
-        : [],
-      required: question.required,
-      conditionalLogic:
-        question.conditional_logic &&
-        typeof question.conditional_logic === "object" &&
-        !Array.isArray(question.conditional_logic)
-          ? (question.conditional_logic as Record<string, unknown>)
-          : {},
-    })),
+    customQuestions: (customResult.data ?? [])
+      .filter(
+        (
+          question,
+        ): question is CustomRow & {
+          section_key: ValidatedCreateCaseInput["customQuestions"][number]["sectionKey"];
+        } => question.section_key !== "goals",
+      )
+      .map((question) => ({
+        sectionKey: question.section_key,
+        questionKey: question.question_key,
+        label: question.label,
+        helpText: question.help_text ?? "",
+        questionType: question.question_type,
+        choices: Array.isArray(question.choices)
+          ? question.choices.filter(
+              (choice): choice is string => typeof choice === "string",
+            )
+          : [],
+        required: question.required,
+        conditionalLogic:
+          question.conditional_logic &&
+          typeof question.conditional_logic === "object" &&
+          !Array.isArray(question.conditional_logic)
+            ? (question.conditional_logic as Record<string, unknown>)
+            : {},
+      })),
     requestedEvidence: (requestedResult.data ?? []).map((requested) => ({
       evidenceCategory: requested.evidence_category,
       label: requested.label,

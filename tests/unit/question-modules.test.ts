@@ -64,7 +64,7 @@ describe("question module composition", () => {
     ]);
   });
 
-  it("adds custom questions and editable prefill confirmations", () => {
+  it("adds editable prefill fields and drops legacy goals questions", () => {
     const result = composeQuestionModules({
       modules,
       customQuestions: [
@@ -86,12 +86,47 @@ describe("question module composition", () => {
         },
       ],
     });
-    expect(
-      result.some((question) => question.key === "confirm_official_address"),
-    ).toBe(true);
-    expect(result.some((question) => question.key === "call_preference")).toBe(
+    expect(result.some((question) => question.key === "official_address")).toBe(
       true,
     );
+    expect(
+      result.find((question) => question.key === "official_address")?.type,
+    ).toBe("text");
+    expect(result.some((question) => question.key === "call_preference")).toBe(
+      false,
+    );
+  });
+
+  it("does not compose retired outcome questions from an older database catalog", () => {
+    const result = composeQuestionModules({
+      modules: [
+        {
+          moduleKey: "legacy_goals",
+          moduleType: "common",
+          sortOrder: 0,
+          schemaJson: {
+            version: 1,
+            questions: [
+              {
+                key: "priority_goals",
+                sectionKey: "goals",
+                label: "이번 작업에서 우선 확인하고 싶은 결과를 골라주세요.",
+                type: "multi_select",
+                options: ["원인 이해"],
+              },
+              {
+                key: "desired_standard_name",
+                sectionKey: "current_business",
+                label: "앞으로 사용할 이름",
+                type: "text",
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    expect(result).toEqual([]);
   });
 
   it("rejects a custom question that would overwrite a module answer", () => {

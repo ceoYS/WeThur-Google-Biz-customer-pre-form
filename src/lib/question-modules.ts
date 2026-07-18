@@ -1,16 +1,33 @@
 import { z } from "zod";
 
-export const questionnaireSectionKeys = [
-  "current_business",
-  "history_summary",
-  "changes",
-  "profile_candidates",
-  "evidence",
-  "goals",
-  "confirmation",
-] as const;
+import { intakeStepIds, type IntakeStepId } from "@/lib/intake-steps";
 
-export type QuestionnaireSectionKey = (typeof questionnaireSectionKeys)[number];
+// `goals` is accepted only while reading cases configured before the customer-ready
+// migration. It is never composed into the current customer flow.
+export const supportedQuestionnaireSectionKeys = [
+  ...intakeStepIds,
+  "goals",
+] as const;
+export type QuestionnaireSectionKey =
+  (typeof supportedQuestionnaireSectionKeys)[number];
+
+export const retiredCustomerQuestionKeys = new Set([
+  "customer_preferred_title",
+  "desired_standard_name",
+  "keyword_name_history",
+  "third_party_involvement",
+  "evidence_availability",
+  "sensitive_data_confirmation",
+  "priority_goals",
+  "success_definition",
+  "process_expectation",
+  "future_location_standard",
+  "duplicate_relation_basis",
+  "unknown_owner_access",
+  "ownership_request_history",
+  "map_pin_difference",
+  "manager_role_summary",
+]);
 
 export const questionTypeSchema = z.enum([
   "text",
@@ -34,7 +51,7 @@ export const conditionSchema = z
 export const questionDefinitionSchema = z
   .object({
     key: z.string().regex(/^[a-z0-9_]+$/),
-    sectionKey: z.enum(questionnaireSectionKeys),
+    sectionKey: z.enum(supportedQuestionnaireSectionKeys),
     label: z.string().min(1),
     helpText: z.string().optional(),
     type: questionTypeSchema,
@@ -93,9 +110,16 @@ export type ComposedQuestion = QuestionDefinition & {
   sourceKey: string;
 };
 
-const sectionOrder = new Map(
-  questionnaireSectionKeys.map((section, index) => [section, index]),
+const sectionOrder = new Map<QuestionnaireSectionKey, number>(
+  intakeStepIds.map((section, index) => [section, index]),
 );
+
+function isCurrentCustomerQuestion(question: QuestionDefinition) {
+  return (
+    question.sectionKey !== "goals" &&
+    !retiredCustomerQuestionKeys.has(question.key)
+  );
+}
 
 export function evaluateQuestionCondition(
   condition: QuestionCondition | undefined,
@@ -125,6 +149,7 @@ export function composeQuestionModules(options: {
     fieldKey: string;
     label: string;
     sortOrder: number;
+    sectionKey?: IntakeStepId;
   }>;
 }): ComposedQuestion[] {
   const composed: ComposedQuestion[] = [];
@@ -138,6 +163,7 @@ export function composeQuestionModules(options: {
   for (const selectedModule of sortedModules) {
     const schema = moduleSchemaJsonSchema.parse(selectedModule.schemaJson);
     for (const question of schema.questions) {
+      if (!isCurrentCustomerQuestion(question)) continue;
       if (seenKeys.has(question.key)) continue;
       seenKeys.add(question.key);
       composed.push({
@@ -150,6 +176,7 @@ export function composeQuestionModules(options: {
 
   for (const question of options.customQuestions ?? []) {
     const parsed = questionDefinitionSchema.parse(question);
+    if (!isCurrentCustomerQuestion(parsed)) continue;
     if (seenKeys.has(parsed.key)) {
       throw new Error(`Duplicate custom question key: ${parsed.key}`);
     }
@@ -158,16 +185,17 @@ export function composeQuestionModules(options: {
   }
 
   for (const prefill of options.prefilledConfirmations ?? []) {
-    const key = `confirm_${prefill.fieldKey}`;
+    const key = prefill.fieldKey;
     if (seenKeys.has(key)) continue;
     seenKeys.add(key);
     composed.push({
       key,
-      sectionKey: "current_business",
+      sectionKey: prefill.sectionKey ?? "current_business",
       label: prefill.label,
-      helpText: "미리 확인한 내용입니다. 다르면 편하게 수정해주세요.",
-      type: "confirmation",
-      options: ["맞아요", "수정이 필요해요", "잘 모르겠어요"],
+      helpText:
+        "값을 처음부터 다시 입력하실 필요 없이, 다른 부분만 고쳐주세요.",
+      type: "text",
+      options: [],
       required: false,
       sortOrder: prefill.sortOrder,
       source: "prefill_confirmation",

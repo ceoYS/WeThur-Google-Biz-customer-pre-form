@@ -11,7 +11,10 @@ describe("customer intake payload", () => {
   it("accepts structured repeatable history, profiles, and third parties", () => {
     const payload = {
       schemaVersion: 1,
-      answers: { authority_status: "맞아요", priority_goals: ["원인 이해"] },
+      answers: {
+        authority_status: "맞아요",
+        verification_methods_used: ["영상 인증"],
+      },
       historyEvents: [createEmptyHistoryEvent()],
       profileCandidates: [createEmptyProfileCandidate()],
       thirdParties: [createEmptyThirdParty()],

@@ -113,17 +113,7 @@ function SummaryTab({ workspace }: { workspace: CaseWorkspace }) {
           ]}
         />
       </div>
-      <div className="mt-12 grid gap-10 lg:grid-cols-2">
-        <div>
-          <h3 className="text-lg font-black">고객이 원하는 결과</h3>
-          <JsonList
-            value={workspace.goals?.priority_goals}
-            empty="아직 우선 목표가 없습니다."
-          />
-          <p className="mt-4 text-sm leading-6 text-[var(--navy-700)]">
-            {workspace.goals?.success_definition ?? "성공 상태 미입력"}
-          </p>
-        </div>
+      <div className="mt-12">
         <div>
           <h3 className="text-lg font-black">우선 확인할 부족 정보</h3>
           {missing.length ? (
@@ -839,20 +829,6 @@ function Empty({ text }: { text: string }) {
     <p className="mt-4 border-l-2 border-[var(--navy-300)] pl-4 text-sm leading-6 text-[var(--navy-700)]">
       {text}
     </p>
-  );
-}
-
-function JsonList({ value, empty }: { value: unknown; empty: string }) {
-  if (!Array.isArray(value) || value.length === 0)
-    return <Empty text={empty} />;
-  return (
-    <ul className="mt-4 space-y-2">
-      {value.map((item, index) => (
-        <li key={index} className="text-sm font-bold">
-          {formatUnknown(item)}
-        </li>
-      ))}
-    </ul>
   );
 }
 

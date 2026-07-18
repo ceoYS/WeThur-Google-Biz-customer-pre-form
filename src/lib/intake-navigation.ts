@@ -1,11 +1,10 @@
 import {
-  questionnaireSectionKeys,
-  type QuestionnaireSectionKey,
-} from "@/lib/question-modules";
+  intakeStepDefinitions,
+  intakeStepIds,
+  type IntakeStepId,
+} from "@/lib/intake-steps";
 
-export type IntakeStepId = QuestionnaireSectionKey;
-
-export const intakeStepIds = questionnaireSectionKeys;
+export { intakeStepDefinitions, intakeStepIds, type IntakeStepId };
 export const firstIntakeStepId = intakeStepIds[0];
 export const finalIntakeStepId = intakeStepIds.at(-1)!;
 

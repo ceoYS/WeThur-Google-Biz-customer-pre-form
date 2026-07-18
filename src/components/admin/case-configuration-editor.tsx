@@ -332,7 +332,6 @@ export function CaseConfigurationEditor({
                     <option value="changes">변경</option>
                     <option value="profile_candidates">프로필</option>
                     <option value="evidence">증빙</option>
-                    <option value="goals">목표</option>
                     <option value="confirmation">확인</option>
                   </select>
                 </Field>

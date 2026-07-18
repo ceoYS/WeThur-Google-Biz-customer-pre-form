@@ -12,15 +12,24 @@ export function DynamicQuestion({
   question,
   control,
   prefilledValue,
+  invalid = false,
 }: {
   question: ComposedQuestion;
   control: Control<IntakePayloadInput>;
   prefilledValue?: unknown;
+  invalid?: boolean;
 }) {
   const name = `answers.${question.key}` as const;
 
   return (
-    <div className="border-b border-[var(--navy-300)] py-7 last:border-0">
+    <div
+      id={`question-container-${question.key}`}
+      className={`border-b py-7 pl-4 last:border-0 ${
+        invalid
+          ? "border-l-4 border-l-red-700 bg-red-50"
+          : "border-[var(--navy-300)]"
+      }`}
+    >
       <div className="mb-4">
         <label
           className="text-base leading-7 font-bold"
@@ -55,6 +64,7 @@ export function DynamicQuestion({
                 {...field}
                 value={typeof value === "string" ? value : ""}
                 id={`question-${question.key}`}
+                aria-invalid={invalid}
                 rows={5}
                 className={`${fieldClass} py-4 leading-7`}
                 placeholder="기억나시는 범위에서 알려주세요."
@@ -67,6 +77,7 @@ export function DynamicQuestion({
                 {...field}
                 value={typeof value === "string" ? value : ""}
                 id={`question-${question.key}`}
+                aria-invalid={invalid}
                 className={fieldClass}
                 placeholder={
                   question.type === "date_period"
@@ -80,6 +91,7 @@ export function DynamicQuestion({
             return (
               <input
                 id={`question-${question.key}`}
+                aria-invalid={invalid}
                 type="number"
                 min={0}
                 max={100}
@@ -103,7 +115,12 @@ export function DynamicQuestion({
           }
           if (question.type === "boolean") {
             return (
-              <div className="grid grid-cols-2 gap-2">
+              <div
+                id={`question-${question.key}`}
+                className="grid grid-cols-2 gap-2"
+                tabIndex={-1}
+                aria-invalid={invalid}
+              >
                 {[true, false].map((option) => (
                   <button
                     key={String(option)}
@@ -125,15 +142,22 @@ export function DynamicQuestion({
                   value={value}
                   onChange={field.onChange}
                   multiple={false}
+                  id={`question-${question.key}`}
+                  invalid={invalid}
                 />
               );
             }
             return (
               <label className="flex min-h-14 cursor-pointer items-start gap-3 border border-[var(--navy-300)] bg-white p-4 text-sm leading-6">
                 <input
+                  id={`question-${question.key}`}
                   type="checkbox"
                   checked={value === true}
                   onChange={(event) => field.onChange(event.target.checked)}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  ref={field.ref}
+                  aria-invalid={invalid}
                   className="mt-0.5 size-5 shrink-0 accent-[var(--navy-950)]"
                 />{" "}
                 확인했습니다
@@ -147,6 +171,8 @@ export function DynamicQuestion({
                 value={value}
                 onChange={field.onChange}
                 multiple
+                id={`question-${question.key}`}
+                invalid={invalid}
               />
             );
           }
@@ -156,6 +182,8 @@ export function DynamicQuestion({
               value={value}
               onChange={field.onChange}
               multiple={false}
+              id={`question-${question.key}`}
+              invalid={invalid}
             />
           );
         }}
@@ -169,17 +197,26 @@ function OptionButtons({
   value,
   onChange,
   multiple,
+  id,
+  invalid,
 }: {
   options: string[];
   value: unknown;
   onChange: (value: string | string[]) => void;
   multiple: boolean;
+  id: string;
+  invalid: boolean;
 }) {
   const selected = Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
+    <div
+      id={id}
+      className="grid gap-2 sm:grid-cols-2"
+      tabIndex={-1}
+      aria-invalid={invalid}
+    >
       {options.map((option) => {
         const active = multiple ? selected.includes(option) : value === option;
         return (

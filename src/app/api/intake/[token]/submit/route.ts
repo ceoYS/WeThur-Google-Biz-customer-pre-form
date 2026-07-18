@@ -79,7 +79,7 @@ export async function POST(
     if (missing.length > 0) {
       return NextResponse.json(
         {
-          error: "마지막 필수 확인 항목을 확인해주세요.",
+          error: "제출 전 필수 확인 항목을 모두 체크해주세요.",
           missing: missing.map((item) => item.key),
         },
         { status: 400 },
@@ -120,7 +120,7 @@ export async function POST(
       try {
         await generateAndStoreDiagnosis(submission.case_id, parsed.data);
       } catch {
-        await recordDiagnosisFailure(submission.case_id);
+        await recordDiagnosisFailure(submission.case_id).catch(() => undefined);
       }
     }
     if (
@@ -134,7 +134,7 @@ export async function POST(
         caseCode: submission.case_code,
         businessName: submission.business_name,
         submittedAt: submission.submitted_at,
-      });
+      }).catch(() => undefined);
     }
 
     return NextResponse.json(

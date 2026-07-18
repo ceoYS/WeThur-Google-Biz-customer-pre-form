@@ -1,9 +1,8 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, ArrowRight, Clock3, LockKeyhole, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 
 import { DynamicQuestion } from "@/components/intake/dynamic-question";
@@ -18,62 +17,26 @@ import {
   getNextStepId,
   getPreviousStepId,
   getStepIndex,
-  intakeStepIds,
+  intakeStepDefinitions,
   isFinalIntakeStep,
   type IntakeStepId,
 } from "@/lib/intake-navigation";
+import { findMissingRequiredAnswers } from "@/lib/intake-validation";
 import { evaluateQuestionCondition } from "@/lib/question-modules";
 import {
-  intakePayloadSchema,
   safeParseIntakePayload,
   type IntakePayloadInput,
 } from "@/lib/schemas/intake";
 import type { PublicIntakeBundle } from "@/lib/public-intake";
 
-const sectionDetails: Record<
-  IntakeStepId,
-  {
-    title: string;
-    description: string;
-  }
-> = {
-  current_business: {
-    title: "현재 사업장 모습을 먼저 알려주세요",
-    description: "간판과 실제 운영 정보부터 편하게 확인합니다.",
-  },
-  history_summary: {
-    title: "예전에 Google 지도 등록을 어떻게 진행했는지 떠올려볼게요",
-    description: "정확한 날짜가 아니어도 괜찮습니다. 큰 흐름부터 정리합니다.",
-  },
-  changes: {
-    title: "프로필이 사라지기 전후에 달라진 점이 있었나요?",
-    description:
-      "담당자와 변경 사항을 누가 잘못했는지 판단하지 않고 살펴봅니다.",
-  },
-  profile_candidates: {
-    title: "현재 지도에서 보이는 항목을 함께 비교할게요",
-    description: "현재 관련 프로필 후보를 확인하고, 다르면 바로잡아주세요.",
-  },
-  evidence: {
-    title: "확인에 도움이 되는 자료가 있는지 알려주세요",
-    description: "지금 자료가 없어도 괜찮습니다. 보유 여부부터 확인합니다.",
-  },
-  goals: {
-    title: "대표님이 가장 원하는 결과를 알려주세요",
-    description: "가능한 것과 먼저 확인할 일을 구분하기 위한 질문입니다.",
-  },
-  confirmation: {
-    title: "마지막으로 함께 확인해주세요",
-    description:
-      "어려운 계약 문구가 아니라 안전한 진행 범위를 짧게 확인합니다.",
-  },
-};
-
 const sections: Array<{
   key: IntakeStepId;
   title: string;
   description: string;
-}> = intakeStepIds.map((key) => ({ key, ...sectionDetails[key] }));
+}> = intakeStepDefinitions.map(({ id, ...details }) => ({
+  key: id,
+  ...details,
+}));
 
 const draftValidationMessage = "작성 내용을 다시 확인해주세요.";
 const draftFailureMessage = "임시 저장하지 못했습니다.";
@@ -86,6 +49,7 @@ const approvedServerMessages = new Set([
   draftFailureMessage,
   "제출 요청이 많습니다. 잠시 후 다시 시도해주세요.",
   "고객 링크를 확인할 수 없습니다.",
+  "제출 전 필수 확인 항목을 모두 체크해주세요.",
   "마지막 필수 확인 항목을 확인해주세요.",
   "제출하지 못했습니다. 잠시 후 다시 시도해주세요.",
   submitFailureMessage,
@@ -109,15 +73,29 @@ export function IntakeShell({
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [invalidQuestionKeys, setInvalidQuestionKeys] = useState<Set<string>>(
+    new Set(),
+  );
+  const submissionLock = useRef(false);
+  const prefilledAnswers = Object.fromEntries(
+    bundle.prefilledFields
+      .filter((field) => field.customerCanEdit)
+      .filter((field) => isIntakeAnswerValue(field.value))
+      .map((field) => [field.fieldKey, field.value]),
+  ) as IntakePayloadInput["answers"];
+  const draftPayload = bundle.draftPayload;
   const form = useForm<IntakePayloadInput>({
-    resolver: zodResolver(intakePayloadSchema),
-    defaultValues: bundle.draftPayload ?? {
+    defaultValues: {
       schemaVersion: 1,
-      answers: {},
-      historyEvents: [],
-      profileCandidates: bundle.profileCandidates,
-      thirdParties: [],
-      website: "",
+      answers: {
+        ...prefilledAnswers,
+        ...(draftPayload?.answers ?? {}),
+      },
+      historyEvents: draftPayload?.historyEvents ?? [],
+      profileCandidates:
+        draftPayload?.profileCandidates ?? bundle.profileCandidates,
+      thirdParties: draftPayload?.thirdParties ?? [],
+      website: draftPayload?.website ?? "",
     },
   });
   const answers = useWatch({ control: form.control, name: "answers" }) ?? {};
@@ -156,12 +134,15 @@ export function IntakeShell({
     );
     if (!missing) return true;
     setMessage(`‘${missing.label}’ 항목을 확인해주세요.`);
+    setInvalidQuestionKeys(new Set([missing.key]));
+    focusQuestion(missing.key);
     return false;
   }
 
   function moveStep(direction: 1 | -1) {
     if (direction === 1 && !validateSection(stepIndex)) return;
     setMessage("");
+    setInvalidQuestionKeys(new Set());
     setCurrentStepId(
       direction === 1
         ? getNextStepId(currentStepId)
@@ -203,42 +184,77 @@ export function IntakeShell({
   }
 
   async function submitFinal(input: IntakePayloadInput) {
-    for (let index = 0; index < sections.length; index += 1) {
-      if (!validateSection(index)) {
-        setCurrentStepId(sections[index]!.key);
-        window.scrollTo({ top: 0, behavior: "smooth" });
+    try {
+      const parsed = safeParseIntakePayload(input);
+      if (!parsed.success) {
+        setMessage(draftValidationMessage);
+        releaseSubmissionLock();
         return;
       }
-    }
-    setSubmitting(true);
-    setMessage("");
-    try {
       const response = await fetch(`/api/intake/${token}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(intakePayloadSchema.parse(input)),
+        body: JSON.stringify(parsed.data),
       });
       const result = (await response.json()) as { error?: string };
       if (!response.ok) {
         setMessage(
           getApprovedServerMessage(result.error, submitFailureMessage),
         );
-        setSubmitting(false);
+        releaseSubmissionLock();
         return;
       }
       router.replace(`/intake/${token}/complete`);
     } catch {
       setMessage(submitFailureMessage);
-      setSubmitting(false);
+      releaseSubmissionLock();
     }
   }
 
+  function releaseSubmissionLock() {
+    submissionLock.current = false;
+    setSubmitting(false);
+  }
+
+  function focusQuestion(questionKey: string) {
+    window.setTimeout(() => {
+      const control = document.getElementById(`question-${questionKey}`);
+      const container = document.getElementById(
+        `question-container-${questionKey}`,
+      );
+      container?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      control?.focus();
+    }, 0);
+  }
+
+  function showMissingRequiredAnswers() {
+    const missing = findMissingRequiredAnswers(
+      bundle.questions,
+      form.getValues("answers") ?? {},
+    );
+    if (missing.length === 0) return false;
+    const firstMissing = missing[0]!;
+    const section = bundle.questions.find(
+      (question) => question.key === firstMissing.key,
+    )?.sectionKey;
+    setMessage("제출 전 필수 확인 항목을 모두 체크해주세요.");
+    setInvalidQuestionKeys(new Set(missing.map((item) => item.key)));
+    if (section && section !== "goals") setCurrentStepId(section);
+    focusQuestion(firstMissing.key);
+    return true;
+  }
+
   function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     if (!isFinalIntakeStep(currentStepId)) {
-      event.preventDefault();
       return;
     }
-    void form.handleSubmit(submitFinal)(event);
+    if (submissionLock.current || showMissingRequiredAnswers()) return;
+    submissionLock.current = true;
+    setSubmitting(true);
+    setMessage("");
+    setInvalidQuestionKeys(new Set());
+    void form.handleSubmit(submitFinal)();
   }
 
   return (
@@ -292,7 +308,7 @@ export function IntakeShell({
                   <ArrowRight className="size-3" />
                   <span>현재 프로필</span>
                   <ArrowRight className="size-3" />
-                  <span>다음 경로</span>
+                  <span>자료와 확인</span>
                 </div>
               </section>
             ) : null}
@@ -317,15 +333,17 @@ export function IntakeShell({
                     key={question.key}
                     question={question}
                     control={form.control}
-                    prefilledValue={
-                      question.source === "prefill_confirmation"
-                        ? prefilledMap.get(question.sourceKey)
-                        : undefined
-                    }
+                    prefilledValue={prefilledMap.get(question.key)}
+                    invalid={invalidQuestionKeys.has(question.key)}
                   />
                 ))}
                 {currentQuestions.length === 0 &&
-                currentSection.key !== "profile_candidates" ? (
+                ![
+                  "history_summary",
+                  "changes",
+                  "profile_candidates",
+                  "evidence",
+                ].includes(currentSection.key) ? (
                   <p className="py-7 text-sm leading-6 text-[var(--navy-700)]">
                     이 사건에서 추가로 확인할 공통 질문은 없습니다.
                   </p>
@@ -385,15 +403,16 @@ export function IntakeShell({
                 {!isFinalIntakeStep(currentStepId) ? (
                   <button
                     type="button"
+                    disabled={saving || submitting}
                     onClick={() => moveStep(1)}
-                    className="inline-flex min-h-14 items-center justify-center gap-2 bg-[var(--navy-950)] px-6 text-sm font-bold text-white"
+                    className="inline-flex min-h-14 items-center justify-center gap-2 bg-[var(--navy-950)] px-6 text-sm font-bold text-white disabled:opacity-50"
                   >
                     다음 질문 <ArrowRight className="size-4" />
                   </button>
                 ) : (
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={saving || submitting}
                     className="min-h-14 bg-[var(--navy-950)] px-6 text-sm font-bold text-white disabled:opacity-50"
                   >
                     {submitting ? "안전하게 제출 중" : "최종 제출하기"}
@@ -440,6 +459,16 @@ export function IntakeShell({
         </div>
       </form>
     </FormProvider>
+  );
+}
+
+function isIntakeAnswerValue(value: unknown) {
+  return (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    (Array.isArray(value) && value.every((item) => typeof item === "string"))
   );
 }
 

@@ -26,7 +26,6 @@ describe("case exports", () => {
           original_filename: "safe.png",
         },
       ],
-      goals: null,
       diagnosis: null,
       facts: [],
       followUps: [],

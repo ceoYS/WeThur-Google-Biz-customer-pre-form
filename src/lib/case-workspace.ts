@@ -129,13 +129,6 @@ export type EvidenceItem = {
   created_at: string;
 };
 
-export type GoalRow = {
-  priority_goals: unknown;
-  success_definition: string | null;
-  process_expectation: string | null;
-  additional_context: string | null;
-};
-
 export type DiagnosisRow = {
   engine_version: string;
   duplicate_entity_score: number;
@@ -204,7 +197,6 @@ export type CaseWorkspace = {
   profiles: ProfileCandidate[];
   thirdParties: ThirdParty[];
   evidence: EvidenceItem[];
-  goals: GoalRow | null;
   diagnosis: DiagnosisRow | null;
   facts: FactItem[];
   followUps: FollowUp[];
@@ -229,7 +221,6 @@ export async function getCaseWorkspace(
     profileResult,
     thirdPartyResult,
     evidenceResult,
-    goalResult,
     diagnosisResult,
     factResult,
     followUpResult,
@@ -290,13 +281,6 @@ export async function getCaseWorkspace(
       .order("created_at")
       .returns<EvidenceItem[]>(),
     supabase
-      .from("customer_goals")
-      .select(
-        "priority_goals, success_definition, process_expectation, additional_context",
-      )
-      .eq("case_id", caseId)
-      .maybeSingle<GoalRow>(),
-    supabase
       .from("case_diagnosis")
       .select(
         "engine_version, duplicate_entity_score, name_consistency_score, address_floor_pin_score, phone_website_score, category_consistency_score, ownership_control_score, account_appeal_score, physical_evidence_score, repeated_recreation_score, independent_business_ambiguity_score, hypotheses, missing_information, suggested_questions, suggested_paths, generated_at, admin_conclusion, admin_decision_path",
@@ -350,7 +334,6 @@ export async function getCaseWorkspace(
     profiles: profileResult.data ?? [],
     thirdParties: thirdPartyResult.data ?? [],
     evidence: evidenceResult.data ?? [],
-    goals: goalResult.data,
     diagnosis: diagnosisResult.data,
     facts: factResult.data ?? [],
     followUps: followUpResult.data ?? [],
