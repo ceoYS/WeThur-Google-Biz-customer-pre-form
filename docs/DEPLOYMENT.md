@@ -25,6 +25,13 @@ Review tracked files for `.env*`, keys, tokens, real customer answers, certifica
 5. Deploy that commit to Vercel with all required environment variables.
 6. Record the Git SHA, Vercel deployment URL, Supabase project ref, and migration list in the private release record.
 
+## Administrator authentication recovery record — 2026-07-18
+
+- Root cause: the `service_role` was missing the required PostgreSQL object privileges on `public` application tables.
+- Resolution: the SQL in `202607180012_service_role_least_privilege_grants.sql` was applied unchanged to the production Supabase project through the SQL Editor. The migration remains in Git so other environments can reproduce the same grants; migration history was not repaired or edited.
+- Local verification: one fresh Magic Link completed `/auth/confirm` and redirected to `/admin`, the administrator dashboard returned HTTP 200, and the corresponding `admin_profiles` row existed.
+- Result: `configuration_error` did not recur and no `admin_auth_confirm_failed` event was emitted during the successful confirmation.
+
 ## Production smoke test
 
 - `/` and `/privacy` render over HTTPS.

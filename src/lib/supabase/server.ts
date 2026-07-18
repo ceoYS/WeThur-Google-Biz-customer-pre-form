@@ -5,7 +5,13 @@ import { cookies } from "next/headers";
 
 import { getPublicEnvironment } from "@/lib/env.public";
 
-export async function createServerSupabaseClient() {
+type ServerSupabaseClientOptions = {
+  onCookieWriteError?: (error: unknown) => void;
+};
+
+export async function createServerSupabaseClient(
+  options: ServerSupabaseClientOptions = {},
+) {
   const environment = getPublicEnvironment();
   const cookieStore = await cookies();
 
@@ -22,7 +28,8 @@ export async function createServerSupabaseClient() {
             for (const { name, value, options } of cookiesToSet) {
               cookieStore.set(name, value, options);
             }
-          } catch {
+          } catch (error) {
+            options.onCookieWriteError?.(error);
             // A Server Component cannot write cookies. proxy.ts refreshes them.
           }
         },

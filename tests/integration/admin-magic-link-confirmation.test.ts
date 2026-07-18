@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { confirmAdminMagicLink } from "@/lib/admin-magic-link";
+import {
+  AdminMagicLinkStageError,
+  confirmAdminMagicLink,
+} from "@/lib/admin-magic-link";
 
 const allowedEmail = "allowed-admin@example.test";
 const verifiedEmail = "Allowed-Admin@Example.Test";
@@ -15,6 +18,7 @@ function createDependencies() {
           email: verifiedEmail,
           user_metadata: { full_name: "Test Administrator" },
         },
+        session: { synthetic: true },
       },
       error: null,
     }),
@@ -36,7 +40,14 @@ describe("administrator TokenHash confirmation", () => {
       dependencies,
     );
 
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({
+      ok: true,
+      context: {
+        userExists: true,
+        sessionExists: true,
+        allowlisted: true,
+      },
+    });
     expect(dependencies.verifyOtp).toHaveBeenCalledWith({
       token_hash: tokenHash,
       type: "email",
@@ -55,16 +66,131 @@ describe("administrator TokenHash confirmation", () => {
   ] as const)("returns %s failures as %s", async (code, expected) => {
     const dependencies = createDependencies();
     dependencies.verifyOtp.mockResolvedValue({
-      data: { user: null },
+      data: { user: null, session: null },
       error: { code },
     });
 
-    await expect(
-      confirmAdminMagicLink(
-        { tokenHash, type: "email", adminEmails: allowedEmail },
-        dependencies,
-      ),
-    ).resolves.toEqual({ ok: false, error: expected });
+    const result = await confirmAdminMagicLink(
+      { tokenHash, type: "email", adminEmails: allowedEmail },
+      dependencies,
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: expected,
+      diagnostic: { stage: "verify_otp", userExists: false },
+    });
+    expect(dependencies.upsertAdminProfile).not.toHaveBeenCalled();
+  });
+
+  it("distinguishes a thrown OTP client failure without exposing its message", async () => {
+    const dependencies = createDependencies();
+    dependencies.verifyOtp.mockRejectedValue(
+      new Error("synthetic-token-and-provider-detail"),
+    );
+
+    const result = await confirmAdminMagicLink(
+      { tokenHash, type: "email", adminEmails: allowedEmail },
+      dependencies,
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: "verification_failed",
+      diagnostic: {
+        stage: "verify_otp",
+        reasonCode: "verify_otp_threw",
+        errorName: "Error",
+        userExists: false,
+        sessionExists: false,
+      },
+    });
+  });
+
+  it("distinguishes a successful OTP response with no user", async () => {
+    const dependencies = createDependencies();
+    dependencies.verifyOtp.mockResolvedValue({
+      data: { user: null, session: { synthetic: true } },
+      error: null,
+    });
+
+    const result = await confirmAdminMagicLink(
+      { tokenHash, type: "email", adminEmails: allowedEmail },
+      dependencies,
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: "verification_failed",
+      diagnostic: {
+        stage: "verified_user",
+        reasonCode: "verified_user_missing",
+        userExists: false,
+        sessionExists: true,
+      },
+    });
+    expect(dependencies.upsertAdminProfile).not.toHaveBeenCalled();
+  });
+
+  it("records that the current workflow does not require a returned session", async () => {
+    const dependencies = createDependencies();
+    dependencies.verifyOtp.mockResolvedValue({
+      data: {
+        user: {
+          id: "00000000-0000-4000-8000-000000000001",
+          email: verifiedEmail,
+          user_metadata: null,
+        },
+        session: null,
+      },
+      error: null,
+    });
+
+    const result = await confirmAdminMagicLink(
+      { tokenHash, type: "email", adminEmails: allowedEmail },
+      dependencies,
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      context: {
+        userExists: true,
+        sessionExists: false,
+        allowlisted: true,
+      },
+    });
+    expect(dependencies.upsertAdminProfile).toHaveBeenCalledOnce();
+  });
+
+  it("distinguishes a verified user with no usable email", async () => {
+    const dependencies = createDependencies();
+    dependencies.verifyOtp.mockResolvedValue({
+      data: {
+        user: {
+          id: "00000000-0000-4000-8000-000000000001",
+          email: null,
+          user_metadata: null,
+        },
+        session: { synthetic: true },
+      },
+      error: null,
+    });
+
+    const result = await confirmAdminMagicLink(
+      { tokenHash, type: "email", adminEmails: allowedEmail },
+      dependencies,
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: "not_allowed",
+      diagnostic: {
+        stage: "verified_user",
+        reasonCode: "verified_email_missing",
+        allowlisted: false,
+      },
+    });
+    expect(dependencies.signOut).toHaveBeenCalledOnce();
     expect(dependencies.upsertAdminProfile).not.toHaveBeenCalled();
   });
 
@@ -80,7 +206,15 @@ describe("administrator TokenHash confirmation", () => {
       dependencies,
     );
 
-    expect(result).toEqual({ ok: false, error: "not_allowed" });
+    expect(result).toMatchObject({
+      ok: false,
+      error: "not_allowed",
+      diagnostic: {
+        stage: "allowlist_check",
+        reasonCode: "email_not_allowlisted",
+        allowlisted: false,
+      },
+    });
     expect(dependencies.signOut).toHaveBeenCalledOnce();
     expect(dependencies.upsertAdminProfile).not.toHaveBeenCalled();
   });
@@ -96,8 +230,94 @@ describe("administrator TokenHash confirmation", () => {
       dependencies,
     );
 
-    expect(result).toEqual({ ok: false, error: "configuration_error" });
+    expect(result).toMatchObject({
+      ok: false,
+      error: "configuration_error",
+      diagnostic: {
+        stage: "admin_profile_upsert",
+        reasonCode: "upsert_returned_error",
+        userExists: true,
+        sessionExists: true,
+        allowlisted: true,
+      },
+    });
     expect(dependencies.signOut).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["42501", "upsert_permission_denied"],
+    ["PGRST205", "upsert_table_unavailable"],
+    ["PGRST204", "upsert_column_mismatch"],
+    ["23505", "upsert_unique_conflict"],
+  ] as const)(
+    "classifies the safe admin_profiles error code %s as %s",
+    async (code, reasonCode) => {
+      const dependencies = createDependencies();
+      dependencies.upsertAdminProfile.mockResolvedValue({ error: { code } });
+
+      const result = await confirmAdminMagicLink(
+        { tokenHash, type: "email", adminEmails: allowedEmail },
+        dependencies,
+      );
+
+      expect(result).toMatchObject({
+        ok: false,
+        error: "configuration_error",
+        diagnostic: {
+          stage: "admin_profile_upsert",
+          reasonCode,
+        },
+      });
+    },
+  );
+
+  it("distinguishes an admin_profiles upsert throw", async () => {
+    const dependencies = createDependencies();
+    dependencies.upsertAdminProfile.mockRejectedValue(
+      new TypeError("synthetic-database-detail"),
+    );
+
+    const result = await confirmAdminMagicLink(
+      { tokenHash, type: "email", adminEmails: allowedEmail },
+      dependencies,
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: "configuration_error",
+      diagnostic: {
+        stage: "admin_profile_upsert",
+        reasonCode: "upsert_threw",
+        errorName: "TypeError",
+      },
+    });
+    expect(dependencies.signOut).toHaveBeenCalledOnce();
+  });
+
+  it("preserves a service-client construction stage", async () => {
+    const dependencies = createDependencies();
+    dependencies.upsertAdminProfile.mockRejectedValue(
+      new AdminMagicLinkStageError(
+        "service_client",
+        "service_client_creation_failed",
+        new Error("synthetic-service-secret-detail"),
+      ),
+    );
+
+    const result = await confirmAdminMagicLink(
+      { tokenHash, type: "email", adminEmails: allowedEmail },
+      dependencies,
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: "configuration_error",
+      diagnostic: {
+        stage: "service_client",
+        reasonCode: "service_client_creation_failed",
+        errorName: "Error",
+      },
+    });
   });
 
   it("does not write the token hash or administrator email to logs", async () => {

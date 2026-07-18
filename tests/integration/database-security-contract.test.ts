@@ -50,6 +50,57 @@ describe("database and storage security contract", () => {
     );
     expect(migrations).not.toContain("to anon using");
   });
+
+  it("grants the service role only the table privileges used by server code", () => {
+    const serviceRoleMigration = readFileSync(
+      join(
+        migrationDirectory,
+        "202607180012_service_role_least_privilege_grants.sql",
+      ),
+      "utf8",
+    );
+    const privilegeMatrix: Record<string, string[]> = {};
+
+    for (const match of serviceRoleMigration.matchAll(
+      /grant\s+([a-z,\s]+?)\s+on table\s+([\s\S]+?)\s+to service_role;/g,
+    )) {
+      const privileges = (match[1] ?? "")
+        .split(",")
+        .map((privilege) => privilege.trim())
+        .filter(Boolean)
+        .toSorted();
+      const tables = [...(match[2] ?? "").matchAll(/public\.([a-z_]+)/g)].map(
+        (tableMatch) => tableMatch[1] ?? "",
+      );
+      for (const table of tables) privilegeMatrix[table] = privileges;
+    }
+
+    expect(serviceRoleMigration).toContain(
+      "grant usage on schema public to service_role",
+    );
+    expect(privilegeMatrix).toEqual({
+      admin_profiles: ["insert", "select", "update"],
+      case_activity_log: ["insert"],
+      case_custom_questions: ["select"],
+      case_diagnosis: ["insert", "select", "update"],
+      case_evidence: ["delete", "select"],
+      case_fact_items: ["select", "update"],
+      case_intake_responses: ["select"],
+      case_modules: ["select"],
+      case_prefilled_fields: ["select"],
+      case_requested_evidence: ["select"],
+      cases: ["select", "update"],
+      current_profile_candidates: ["select"],
+      follow_up_requests: ["insert", "select", "update"],
+      history_events: ["insert", "select", "update"],
+      outbound_delivery_log: ["insert"],
+      question_modules: ["select"],
+      admin_notes: ["insert", "select"],
+    });
+    expect(serviceRoleMigration).not.toMatch(/grant\s+all\b/i);
+    expect(serviceRoleMigration).not.toMatch(/on\s+all\s+tables/i);
+    expect(serviceRoleMigration).not.toMatch(/alter\s+default\s+privileges/i);
+  });
 });
 
 describe("seeded question-module catalog", () => {
