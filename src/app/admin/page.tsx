@@ -37,7 +37,7 @@ export default async function AdminDashboardPage({
       <header className="flex flex-col gap-6 border-b border-[var(--navy-300)] pb-7 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-bold tracking-[0.2em] text-[var(--navy-700)] uppercase">
-            Case desk
+            사건 관리
           </p>
           <h1 className="mt-3 text-4xl font-black tracking-[-0.05em]">
             사건 대시보드

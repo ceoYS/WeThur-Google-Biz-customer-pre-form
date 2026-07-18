@@ -1,5 +1,6 @@
 import "server-only";
 
+import { moduleSchemaJsonSchema } from "@/lib/question-modules";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export type WorkspaceCase = {
@@ -24,6 +25,8 @@ export type WorkspaceCase = {
 };
 
 export type CurrentBusiness = {
+  customer_preferred_title: string | null;
+  preferred_contact_method: string | null;
   relationship_to_business: string | null;
   authority_status: string | null;
   sign_name: string | null;
@@ -202,11 +205,28 @@ export type CaseWorkspace = {
   followUps: FollowUp[];
   notes: AdminNote[];
   activity: ActivityItem[];
+  customerAnswers: Record<string, unknown>;
+  questionMetadata: Record<
+    string,
+    { label: string; sectionKey: string }
+  >;
+  finalIntakePayload: unknown;
 };
 
 type ModuleLink = {
-  question_modules: { title: string } | Array<{ title: string }> | null;
+  question_modules:
+    | { title: string; schema_json: unknown }
+    | Array<{ title: string; schema_json: unknown }>
+    | null;
 };
+
+type CustomQuestionMetadata = {
+  question_key: string;
+  label: string;
+  section_key: string;
+};
+
+type IntakeResponseRow = { final_payload: unknown };
 
 export async function getCaseWorkspace(
   caseId: string,
@@ -215,6 +235,8 @@ export async function getCaseWorkspace(
   const [
     caseResult,
     moduleResult,
+    customQuestionResult,
+    intakeResponseResult,
     currentResult,
     historyResult,
     eventResult,
@@ -234,13 +256,26 @@ export async function getCaseWorkspace(
       .maybeSingle<WorkspaceCase>(),
     supabase
       .from("case_modules")
-      .select("question_modules(title)")
+      .select("question_modules(title, schema_json)")
       .eq("case_id", caseId)
       .order("sort_order")
       .returns<ModuleLink[]>(),
     supabase
+      .from("case_custom_questions")
+      .select("question_key, label, section_key")
+      .eq("case_id", caseId)
+      .order("sort_order")
+      .returns<CustomQuestionMetadata[]>(),
+    supabase
+      .from("case_intake_responses")
+      .select("final_payload")
+      .eq("case_id", caseId)
+      .maybeSingle<IntakeResponseRow>(),
+    supabase
       .from("case_current_business")
-      .select("*")
+      .select(
+        "customer_preferred_title, preferred_contact_method, relationship_to_business, authority_status, sign_name, entrance_sign_name, registration_name, permit_name, official_address, building_name, floor_structure, independent_business_count, entrance_structure, floor_independence_signals, official_phone, official_website, primary_activity, opening_hours, desired_standard_name, keyword_name_history, raw_notes",
+      )
       .eq("case_id", caseId)
       .maybeSingle<CurrentBusiness>(),
     supabase
@@ -319,11 +354,37 @@ export async function getCaseWorkspace(
   ]);
 
   if (caseResult.error || !caseResult.data) return null;
-  const moduleTitles = (moduleResult.data ?? []).flatMap((link) => {
+  const linkedModules = (moduleResult.data ?? []).flatMap((link) => {
     if (Array.isArray(link.question_modules))
-      return link.question_modules.map((item) => item.title);
-    return link.question_modules ? [link.question_modules.title] : [];
+      return link.question_modules;
+    return link.question_modules ? [link.question_modules] : [];
   });
+  const moduleTitles = linkedModules.map(
+    (questionModule) => questionModule.title,
+  );
+  const questionMetadata: CaseWorkspace["questionMetadata"] = {};
+  for (const questionModule of linkedModules) {
+    const schema = moduleSchemaJsonSchema.safeParse(
+      questionModule.schema_json,
+    );
+    if (!schema.success) continue;
+    for (const question of schema.data.questions) {
+      questionMetadata[question.key] = {
+        label: question.label,
+        sectionKey: question.sectionKey,
+      };
+    }
+  }
+  for (const question of customQuestionResult.data ?? []) {
+    questionMetadata[question.question_key] = {
+      label: question.label,
+      sectionKey: question.section_key,
+    };
+  }
+  const finalIntakePayload = intakeResponseResult.data?.final_payload ?? null;
+  const customerAnswers = isRecord(finalIntakePayload)
+    ? recordValue(finalIntakePayload.answers)
+    : {};
 
   return {
     case: caseResult.data,
@@ -339,5 +400,16 @@ export async function getCaseWorkspace(
     followUps: followUpResult.data ?? [],
     notes: noteResult.data ?? [],
     activity: activityResult.data ?? [],
+    customerAnswers,
+    questionMetadata,
+    finalIntakePayload,
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function recordValue(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
 }

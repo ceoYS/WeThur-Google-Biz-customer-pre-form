@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 
+import {
+  formatAdminAnswerValue,
+  isAdminAnswerMissing,
+} from "@/lib/admin-response-format";
 import type {
   CurrentBusiness,
   EvidenceItem,
@@ -131,10 +135,10 @@ export function ProfileComparisonMatrix({
                 >
                   <span className="text-[0.65rem] font-black tracking-[0.12em] text-[var(--navy-700)] uppercase">
                     {column.kind === "official"
-                      ? "Official"
+                      ? "공식 사업장"
                       : column.kind === "history"
-                        ? "History"
-                        : "Current candidate"}
+                        ? "과거 이력"
+                        : "현재 후보"}
                   </span>
                   <span className="mt-2 block font-black">{column.title}</span>
                 </th>
@@ -204,11 +208,14 @@ function buildColumns(
         website: current?.official_website ?? "",
         category: current?.primary_activity ?? "",
         additionalCategories: "",
-        account: summary?.old_account_access_status ?? "",
+        account: displayValue(
+          "old_account_access_status",
+          summary?.old_account_access_status,
+        ),
         creator: "",
-        control: current?.authority_status ?? "",
+        control: displayValue("authority_status", current?.authority_status),
         verification: "",
-        appeal: summary?.appeal_status ?? "",
+        appeal: displayValue("appeal_status", summary?.appeal_status),
         signEvidence: evidenceCount(signEvidence),
         independence: formatSignals(current?.floor_independence_signals),
       },
@@ -266,9 +273,15 @@ function buildColumns(
         additionalCategories: "",
         account: "",
         creator: profile.possible_creator ?? "",
-        control: profile.customer_controls_profile ?? "",
+        control: displayValue(
+          "customer_controls_profile",
+          profile.customer_controls_profile,
+        ),
         verification: "",
-        appeal: profile.ownership_request_status ?? "",
+        appeal: displayValue(
+          "ownership_request_status",
+          profile.ownership_request_status,
+        ),
         signEvidence: evidenceCount(
           signEvidence.filter(
             (item) => item.current_profile_candidate_id === profile.id,
@@ -316,10 +329,13 @@ function stringList(value: unknown) {
 }
 
 function formatSignals(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return "";
-  return Object.entries(value)
-    .map(([key, item]) => `${key}: ${String(item)}`)
-    .join(", ");
+  return isAdminAnswerMissing(value)
+    ? ""
+    : formatAdminAnswerValue("independent_business_signals", value);
+}
+
+function displayValue(key: string, value: unknown) {
+  return isAdminAnswerMissing(value) ? "" : formatAdminAnswerValue(key, value);
 }
 
 function normalize(value: string | undefined) {

@@ -3,6 +3,10 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
+import {
+  formatAdminAnswerValue,
+  getAdminAnswerLabel,
+} from "@/lib/admin-response-format";
 import type { FactItem } from "@/lib/case-workspace";
 
 const statuses = [
@@ -16,9 +20,11 @@ const statuses = [
 export function FactReviewList({
   caseId,
   facts,
+  questionLabels = {},
 }: {
   caseId: string;
   facts: FactItem[];
+  questionLabels?: Record<string, string>;
 }) {
   const [showAll, setShowAll] = useState(false);
   const visible = showAll
@@ -40,7 +46,12 @@ export function FactReviewList({
       </div>
       <div className="mt-4 space-y-3">
         {visible.map((fact) => (
-          <FactReviewItem key={fact.id} caseId={caseId} fact={fact} />
+          <FactReviewItem
+            key={fact.id}
+            caseId={caseId}
+            fact={fact}
+            questionLabels={questionLabels}
+          />
         ))}
         {visible.length === 0 ? (
           <p className="border-l-2 border-[var(--navy-300)] pl-4 text-sm text-[var(--navy-700)]">
@@ -53,7 +64,15 @@ export function FactReviewList({
   );
 }
 
-function FactReviewItem({ caseId, fact }: { caseId: string; fact: FactItem }) {
+function FactReviewItem({
+  caseId,
+  fact,
+  questionLabels,
+}: {
+  caseId: string;
+  fact: FactItem;
+  questionLabels: Record<string, string>;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -83,11 +102,13 @@ function FactReviewItem({ caseId, fact }: { caseId: string; fact: FactItem }) {
   return (
     <form onSubmit={save} className="border border-[var(--navy-300)] p-4">
       <p className="text-xs font-bold text-[var(--navy-700)]">
-        {fact.source_type}
+        {formatAdminAnswerValue("source_type", fact.source_type)}
       </p>
-      <h4 className="mt-1 font-black">{fact.fact_key}</h4>
+      <h4 className="mt-1 font-black">
+        {getAdminAnswerLabel(fact.fact_key, questionLabels)}
+      </h4>
       <p className="mt-2 text-sm break-words text-[var(--navy-700)]">
-        {formatValue(fact.fact_value) || "값 없음"}
+        {formatAdminAnswerValue(fact.fact_key, fact.fact_value)}
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-[10rem_1fr_auto] sm:items-end">
         <label className="text-xs font-bold">
@@ -123,15 +144,4 @@ function FactReviewItem({ caseId, fact }: { caseId: string; fact: FactItem }) {
       {message ? <p className="mt-2 text-xs font-bold">{message}</p> : null}
     </form>
   );
-}
-
-function formatValue(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  if (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  )
-    return String(value);
-  return JSON.stringify(value);
 }

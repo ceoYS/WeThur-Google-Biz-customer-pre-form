@@ -4,6 +4,7 @@ import { ExternalLink, FileText, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { formatAdminAnswerValue } from "@/lib/admin-response-format";
 import type { EvidenceItem } from "@/lib/case-workspace";
 
 export function EvidenceList({
@@ -86,7 +87,11 @@ export function EvidenceList({
                 {item.original_filename}
               </p>
               <p className="mt-1 text-xs text-[var(--navy-700)]">
-                {item.evidence_category} · {formatBytes(item.size_bytes)} ·{" "}
+                {formatAdminAnswerValue(
+                  "evidence_category",
+                  item.evidence_category,
+                )}{" "}
+                · {formatBytes(item.size_bytes)} ·{" "}
                 {new Date(item.created_at).toLocaleDateString("ko-KR")}
               </p>
               {item.customer_description ? (

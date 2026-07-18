@@ -155,7 +155,7 @@ export function CaseCreationForm({
         </div>
         <div className="mt-12 border-y border-[var(--navy-300)] py-7">
           <p className="text-xs font-bold tracking-[0.16em] text-[var(--navy-700)] uppercase">
-            Secure customer link
+            보안 고객 링크
           </p>
           <p className="mt-4 text-sm leading-7 break-all">{result.intakeUrl}</p>
           <p className="mt-3 text-xs leading-5 text-[var(--navy-700)]">
@@ -651,7 +651,7 @@ export function CaseCreationForm({
         <aside className="lg:sticky lg:top-8 lg:h-fit">
           <div className="border-t-4 border-[var(--navy-950)] bg-[var(--neutral-100)] p-5">
             <p className="text-xs font-bold tracking-[0.16em] text-[var(--navy-700)] uppercase">
-              Case setup
+              사건 설정
             </p>
             <dl className="mt-5 space-y-4 text-sm">
               <div className="flex justify-between gap-3">

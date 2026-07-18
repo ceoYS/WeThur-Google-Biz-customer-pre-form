@@ -1,14 +1,16 @@
 import { DiagnosisControls } from "@/components/admin/workspace/diagnosis-controls";
+import { CustomerSubmissionView } from "@/components/admin/workspace/customer-submission-view";
 import { EvidenceList } from "@/components/admin/workspace/evidence-list";
 import { FactReviewList } from "@/components/admin/workspace/fact-review-list";
 import { FollowUpWorkspace } from "@/components/admin/workspace/follow-up-workspace";
 import { ProfileComparisonMatrix } from "@/components/admin/workspace/profile-comparison-matrix";
 import { TimelineWorkspace } from "@/components/admin/workspace/timeline-workspace";
+import { formatAdminAnswerValue } from "@/lib/admin-response-format";
 import type { CaseWorkspace } from "@/lib/case-workspace";
 
 export const workspaceTabs = [
   ["summary", "사건 요약"],
-  ["current-business", "현재 사업장"],
+  ["current-business", "고객 제출정보"],
   ["history", "과거 이력"],
   ["profiles", "현재 프로필 비교"],
   ["third-parties", "계정·대행사 이력"],
@@ -38,7 +40,7 @@ export function CaseWorkspaceView({
 }) {
   switch (tab) {
     case "current-business":
-      return <CurrentBusinessTab workspace={workspace} />;
+      return <CustomerSubmissionView workspace={workspace} />;
     case "history":
       return <HistoryTab workspace={workspace} />;
     case "profiles":
@@ -71,7 +73,7 @@ function SummaryTab({ workspace }: { workspace: CaseWorkspace }) {
   return (
     <div>
       <SectionHeading
-        eyebrow="Operational summary"
+        eyebrow="운영 요약"
         title="사건 요약"
         description="고객 답변을 실제 검토에 필요한 구조로 압축한 화면입니다."
       />
@@ -91,7 +93,13 @@ function SummaryTab({ workspace }: { workspace: CaseWorkspace }) {
         <KeyValueList
           title="현재 공식 정보"
           items={[
-            ["권한 상태", current?.authority_status],
+            [
+              "권한 상태",
+              formatAdminAnswerValue(
+                "authority_status",
+                current?.authority_status,
+              ),
+            ],
             ["상시 간판명", current?.sign_name],
             ["사업자등록 상호", current?.registration_name],
             ["영업허가명", current?.permit_name],
@@ -107,9 +115,24 @@ function SummaryTab({ workspace }: { workspace: CaseWorkspace }) {
             ["첫 등록 시기", history?.first_registration_period],
             ["Google 계정 수", history?.account_count],
             ["외부 담당자 수", history?.third_party_count],
-            ["이전 계정 접근", history?.old_account_access_status],
-            ["이의신청 상태", history?.appeal_status],
-            ["대기 중 재등록", history?.recreated_during_appeal],
+            [
+              "이전 계정 접근",
+              formatAdminAnswerValue(
+                "old_account_access_status",
+                history?.old_account_access_status,
+              ),
+            ],
+            [
+              "이의신청 상태",
+              formatAdminAnswerValue("appeal_status", history?.appeal_status),
+            ],
+            [
+              "대기 중 재등록",
+              formatAdminAnswerValue(
+                "recreated_during_appeal",
+                history?.recreated_during_appeal,
+              ),
+            ],
           ]}
         />
       </div>
@@ -138,35 +161,11 @@ function SummaryTab({ workspace }: { workspace: CaseWorkspace }) {
   );
 }
 
-function CurrentBusinessTab({ workspace }: { workspace: CaseWorkspace }) {
-  const current = workspace.currentBusiness;
-  return (
-    <div>
-      <SectionHeading
-        eyebrow="Physical operation"
-        title="현재 사업장"
-        description="실제 현장과 공식 기준 정보를 함께 확인합니다."
-      />
-      {current ? (
-        <KeyValueList
-          title="고객 제출 정보"
-          items={Object.entries(current).map(([key, value]) => [
-            friendlyKey(key),
-            formatUnknown(value),
-          ])}
-        />
-      ) : (
-        <Empty text="고객이 현재 사업장 정보를 아직 제출하지 않았습니다." />
-      )}
-    </div>
-  );
-}
-
 function HistoryTab({ workspace }: { workspace: CaseWorkspace }) {
   return (
     <div>
       <SectionHeading
-        eyebrow="Chronology"
+        eyebrow="시간순 이력"
         title="과거 이력"
         description="원본 응답을 보존한 채 시간순으로 정리된 등록 사건입니다."
       />
@@ -185,7 +184,7 @@ function ProfilesTab({ workspace }: { workspace: CaseWorkspace }) {
   return (
     <div>
       <SectionHeading
-        eyebrow="Comparison"
+        eyebrow="프로필 비교"
         title="현재 프로필 비교"
         description="현재 관련 프로필 후보를 중립적으로 비교합니다."
       />
@@ -204,7 +203,7 @@ function ThirdPartiesTab({ workspace }: { workspace: CaseWorkspace }) {
   return (
     <div>
       <SectionHeading
-        eyebrow="Access history"
+        eyebrow="접근·담당 이력"
         title="계정·대행사 이력"
         description="책임을 단정하지 않고 역할, 시기, 계정 접근 수준을 구분합니다."
       />
@@ -215,7 +214,7 @@ function ThirdPartiesTab({ workspace }: { workspace: CaseWorkspace }) {
             className="border border-[var(--navy-300)] p-5"
           >
             <p className="text-xs font-bold text-[var(--navy-700)]">
-              {party.party_type ?? "유형 미확인"} ·{" "}
+              {formatAdminAnswerValue("party_type", party.party_type)} ·{" "}
               {party.approximate_period ?? "시기 미확인"}
             </p>
             <h3 className="mt-3 text-lg font-black">
@@ -225,7 +224,11 @@ function ThirdPartiesTab({ workspace }: { workspace: CaseWorkspace }) {
               {party.work_requested ?? "요청 작업 미입력"}
             </p>
             <p className="mt-3 text-xs">
-              계정 접근: {party.account_access_level ?? "미확인"}
+              계정 접근:{" "}
+              {formatAdminAnswerValue(
+                "account_access_level",
+                party.account_access_level,
+              )}
             </p>
           </article>
         ))}
@@ -259,7 +262,7 @@ function DiagnosisTab({ workspace }: { workspace: CaseWorkspace }) {
   return (
     <div>
       <SectionHeading
-        eyebrow="Hypotheses, not verdicts"
+        eyebrow="확정이 아닌 원인 가설"
         title="원인 가설"
         description="제출된 사실을 기준으로 생성한 가설이며 Google의 비공개 판단 로직을 안다고 주장하지 않습니다."
       />
@@ -284,7 +287,7 @@ function DiagnosisTab({ workspace }: { workspace: CaseWorkspace }) {
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-bold text-[var(--navy-700)]">
-                    {formatUnknown(item.confidence) || "단서 적음"} · SCORE{" "}
+                    {formatUnknown(item.confidence) || "단서 적음"} · 점수{" "}
                     {formatUnknown(item.score)}
                   </p>
                   <h3 className="mt-2 text-xl font-black">
@@ -354,7 +357,7 @@ function EvidenceTab({ workspace }: { workspace: CaseWorkspace }) {
   return (
     <div>
       <SectionHeading
-        eyebrow="Private files"
+        eyebrow="비공개 제출 자료"
         title="증빙 자료"
         description="첨부 자료는 짧은 만료 링크로만 확인합니다."
       />
@@ -368,7 +371,7 @@ function MissingTab({ workspace }: { workspace: CaseWorkspace }) {
   return (
     <div>
       <SectionHeading
-        eyebrow="Confirmation order"
+        eyebrow="확인 우선순위"
         title="부족한 정보"
         description="확인되지 않은 사실, 상충 정보와 필요한 자료를 순서대로 봅니다."
       />
@@ -398,7 +401,15 @@ function MissingTab({ workspace }: { workspace: CaseWorkspace }) {
             <Empty text="아직 생성된 부족 정보가 없습니다." />
           )}
         </div>
-        <FactReviewList caseId={workspace.case.id} facts={workspace.facts} />
+        <FactReviewList
+          caseId={workspace.case.id}
+          facts={workspace.facts}
+          questionLabels={Object.fromEntries(
+            Object.entries(workspace.questionMetadata).map(
+              ([key, metadata]) => [key, metadata.label],
+            ),
+          )}
+        />
       </div>
     </div>
   );
@@ -408,7 +419,7 @@ function FollowUpsTab({ workspace }: { workspace: CaseWorkspace }) {
   return (
     <div>
       <SectionHeading
-        eyebrow="Customer-friendly questions"
+        eyebrow="고객 추가 확인"
         title="고객 추가 질문"
         description="복사해 보내기 쉬운 말로 부족한 내용을 확인합니다."
       />
@@ -538,7 +549,7 @@ function NextPathTab({ workspace }: { workspace: CaseWorkspace }) {
   return (
     <div>
       <SectionHeading
-        eyebrow="Administrator decision"
+        eyebrow="관리자 판단"
         title="다음 경로 결정"
         description="점수만으로 자동 결정하지 않습니다. 필수 조건과 위험을 검토한 뒤 담당자가 최종 선택합니다."
       />
@@ -552,7 +563,7 @@ function NextPathTab({ workspace }: { workspace: CaseWorkspace }) {
               className={`break-inside-avoid border bg-[var(--neutral-50)] p-5 sm:p-7 ${workspace.diagnosis?.admin_decision_path === key ? "border-4 border-[var(--navy-950)]" : "border-[var(--navy-300)]"}`}
             >
               <p className="text-xs font-black text-[var(--navy-700)]">
-                PATH {key}
+                경로 {key}
               </p>
               <h3 className="mt-2 text-xl font-black">{title}</h3>
               <div className="mt-6 grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
@@ -624,7 +635,12 @@ function assessPath(
     blockers.push("여러 프로필의 관계를 비교할 단서가 적음");
   if (key === "D") {
     if (history?.appeal_status && history.appeal_status !== "unknown")
-      met.push(`이의신청 상태: ${history.appeal_status}`);
+      met.push(
+        `이의신청 상태: ${formatAdminAnswerValue(
+          "appeal_status",
+          history.appeal_status,
+        )}`,
+      );
     else blockers.push("공식 이의신청 상태 미확인");
   }
   if (key === "E" && current?.desired_standard_name)
@@ -673,7 +689,7 @@ function ActivityTab({ workspace }: { workspace: CaseWorkspace }) {
   return (
     <div>
       <SectionHeading
-        eyebrow="Audit trail"
+        eyebrow="진행 기록"
         title="진행 기록"
         description="관리자 메모와 주요 시스템 활동을 시간순으로 확인합니다."
       />
@@ -738,7 +754,7 @@ function ExportTab({ workspace }: { workspace: CaseWorkspace }) {
   return (
     <div>
       <SectionHeading
-        eyebrow="Portable case brief"
+        eyebrow="사건 자료 내보내기"
         title="내보내기"
         description="고객 토큰과 비공개 링크를 제외한 사건 자료를 목적별로 내보냅니다."
       />
@@ -892,10 +908,6 @@ function formatUnknown(value: unknown): string {
   if (Array.isArray(value))
     return value.map(formatUnknown).filter(Boolean).join(", ");
   return JSON.stringify(value);
-}
-
-function friendlyKey(value: string): string {
-  return value.replaceAll("_", " ");
 }
 
 function formatDateTime(value: string): string {

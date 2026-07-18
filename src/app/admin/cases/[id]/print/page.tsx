@@ -4,7 +4,9 @@ import { z } from "zod";
 
 import { PrintButton } from "@/components/admin/print-button";
 import { requireAdmin } from "@/lib/admin-auth";
+import { formatAdminAnswerValue } from "@/lib/admin-response-format";
 import { getCaseWorkspace } from "@/lib/case-workspace";
+import { caseStatusLabels, intakeStatusLabels } from "@/lib/case-status";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +36,7 @@ export default async function CasePrintPage({
       </div>
       <header className="border-b-4 border-[var(--navy-950)] pb-8">
         <p className="text-xs font-black tracking-[0.18em] text-[var(--navy-700)] uppercase">
-          WeThru case brief · {workspace.case.case_code}
+          WeThru 사건 요약 · {workspace.case.case_code}
         </p>
         <h1 className="mt-4 text-4xl font-black tracking-[-0.05em] sm:text-6xl">
           {workspace.case.business_name}
@@ -51,8 +53,19 @@ export default async function CasePrintPage({
       <PrintSection title="사건 요약">
         <Grid
           items={[
-            ["사건 상태", workspace.case.status],
-            ["작성 상태", workspace.case.intake_status],
+            [
+              "사건 상태",
+              caseStatusLabels[
+                workspace.case.status as keyof typeof caseStatusLabels
+              ] ?? workspace.case.status,
+            ],
+            [
+              "작성 상태",
+              intakeStatusLabels[
+                workspace.case
+                  .intake_status as keyof typeof intakeStatusLabels
+              ] ?? workspace.case.intake_status,
+            ],
             [
               "제출 시각",
               workspace.case.submitted_at
@@ -61,7 +74,9 @@ export default async function CasePrintPage({
             ],
             [
               "관리자 결정",
-              workspace.diagnosis?.admin_decision_path ?? "미결정",
+              workspace.diagnosis?.admin_decision_path
+                ? `경로 ${workspace.diagnosis.admin_decision_path}`
+                : "미결정",
             ],
             [
               "과거 등록 시도",
@@ -77,7 +92,13 @@ export default async function CasePrintPage({
       <PrintSection title="현재 공식 사업장">
         <Grid
           items={[
-            ["권한 상태", workspace.currentBusiness?.authority_status],
+            [
+              "권한 상태",
+              formatAdminAnswerValue(
+                "authority_status",
+                workspace.currentBusiness?.authority_status,
+              ),
+            ],
             ["상시 간판명", workspace.currentBusiness?.sign_name],
             ["사업자등록 상호", workspace.currentBusiness?.registration_name],
             ["영업허가명", workspace.currentBusiness?.permit_name],
@@ -153,7 +174,12 @@ export default async function CasePrintPage({
                 <Cell value={profile.displayed_phone} />
                 <Cell value={profile.displayed_website} />
                 <Cell value={profile.displayed_category} />
-                <Cell value={profile.customer_controls_profile} />
+                <Cell
+                  value={formatAdminAnswerValue(
+                    "customer_controls_profile",
+                    profile.customer_controls_profile,
+                  )}
+                />
               </tr>
             ))}
           </tbody>
@@ -168,7 +194,7 @@ export default async function CasePrintPage({
               className="break-inside-avoid border border-[var(--navy-300)] p-4"
             >
               <p className="text-xs font-black text-[var(--navy-700)]">
-                {value(item.confidence)} · SCORE {value(item.score)}
+                {value(item.confidence)} · 점수 {value(item.score)}
               </p>
               <h3 className="mt-2 font-black">{value(item.title)}</h3>
               <p className="mt-2 text-sm leading-6">
@@ -208,7 +234,11 @@ export default async function CasePrintPage({
               className="flex justify-between gap-4 py-3 text-sm"
             >
               <span>
-                {item.evidence_category} · {item.original_filename}
+                {formatAdminAnswerValue(
+                  "evidence_category",
+                  item.evidence_category,
+                )}{" "}
+                · {item.original_filename}
               </span>
               <span>{Math.ceil(item.size_bytes / 1024)} KB</span>
             </li>

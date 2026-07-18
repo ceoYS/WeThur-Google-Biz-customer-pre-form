@@ -64,6 +64,9 @@ export default async function AdminCasePage({
             <p className="text-xs font-bold tracking-[0.18em] text-[var(--navy-700)] uppercase">
               {workspace.case.case_code}
             </p>
+            <p className="mt-2 text-xs text-[var(--navy-700)]">
+              사건 ID {workspace.case.id}
+            </p>
             <h1 className="mt-3 text-4xl font-black tracking-[-0.05em] sm:text-6xl">
               {workspace.case.business_name}
             </h1>

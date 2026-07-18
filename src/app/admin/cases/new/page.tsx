@@ -63,7 +63,7 @@ export default async function NewCasePage() {
             ← 사건 대시보드
           </Link>
           <p className="mt-10 text-xs font-bold tracking-[0.2em] text-[var(--navy-700)] uppercase">
-            New customer case
+            새 고객 사건
           </p>
           <h1 className="mt-3 text-4xl font-black tracking-[-0.05em] sm:text-6xl">
             고객별 사건 만들기

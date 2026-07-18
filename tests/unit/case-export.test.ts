@@ -38,4 +38,34 @@ describe("case exports", () => {
     expect(exported).not.toContain("history-id");
     expect(exported).toContain("safe.png");
   });
+
+  it("keeps original database keys in exports after screen localization", () => {
+    const workspace = {
+      case: { id: "case-uuid", case_code: "WTH-TEST" },
+      moduleTitles: [],
+      currentBusiness: {
+        relationship_to_business: "representative",
+        authority_status: "needs_confirmation",
+        sign_name: "고객 원문 간판명",
+      },
+      historySummary: null,
+      historyEvents: [],
+      profiles: [],
+      thirdParties: [],
+      evidence: [],
+      diagnosis: null,
+      facts: [],
+      followUps: [],
+      notes: [],
+      activity: [],
+    } as unknown as CaseWorkspace;
+
+    const exported = buildCaseJsonExport(workspace);
+
+    expect(exported.currentBusiness).toMatchObject({
+      relationship_to_business: "representative",
+      authority_status: "needs_confirmation",
+      sign_name: "고객 원문 간판명",
+    });
+  });
 });

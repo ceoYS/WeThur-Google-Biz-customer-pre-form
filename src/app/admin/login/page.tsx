@@ -26,7 +26,7 @@ export default async function AdminLoginPage({
         </Link>
         <div className="py-20">
           <p className="text-xs font-bold tracking-[0.2em] text-white/60 uppercase">
-            Private workspace
+            비공개 관리자 공간
           </p>
           <h1 className="mt-5 text-5xl leading-[0.95] font-black tracking-[-0.06em] sm:text-7xl">
             사건의 흐름을
@@ -42,7 +42,7 @@ export default async function AdminLoginPage({
       <section className="flex items-center px-5 py-16 sm:px-12 lg:px-20">
         <div className="w-full max-w-md">
           <p className="text-xs font-bold tracking-[0.2em] text-[var(--navy-700)] uppercase">
-            Administrator
+            관리자 로그인
           </p>
           <h2 className="mt-4 text-4xl font-black tracking-[-0.05em]">
             관리자 로그인

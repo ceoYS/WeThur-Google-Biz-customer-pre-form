@@ -138,7 +138,7 @@ export function TimelineWorkspace({
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--navy-300)] px-5 py-4">
               <div>
                 <p className="text-xs font-black text-[var(--navy-700)]">
-                  EVENT {String(index + 1).padStart(2, "0")}
+                  이력 {String(index + 1).padStart(2, "0")}
                 </p>
                 <h3 className="mt-1 font-black">
                   {event.approximate_period ?? "시기 미확인"} ·{" "}
